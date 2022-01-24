@@ -34,7 +34,7 @@ class State:
 
     '''
     def __init__(self, width, height, n_agents):
-        assert n_agents ==  2
+        # assert n_agents ==  2
         self.n_agents = n_agents
         self.width = (width - 2)
         self.height = (height - 2)
@@ -92,11 +92,12 @@ class Features:
         return val
 
 class NavigationActions:
-    available=['left', 'right', 'forward']
-    # Turn left, turn right, move forward
-    left = 0
-    right = 1
-    forward = 2
+    available=['right', 'down', 'left', 'up']
+    # 'right', 'down', 'left', 'up'
+    right = 0
+    down = 1
+    left = 2
+    up = 3
 
 class DuoNavigationGameEnv(MultiGridEnv):
     """
@@ -185,41 +186,38 @@ class DuoNavigationGameEnv(MultiGridEnv):
             if self.agents[i].terminated or self.agents[i].paused or not self.agents[i].started:
                 continue
 
+
+            # Align according to current orientation
+            if actions[i] == self.actions.right:
+                # Face right
+                self.agents[i].dir = 0 
+            elif actions[i] == self.actions.down:
+                # Face down
+                self.agents[i].dir = 1
+            elif actions[i] == self.actions.left:
+                # Face left
+                self.agents[i].dir = 2 
+            else:
+                # Face up
+                self.agents[i].dir = 3
+
             # Get the position in front of the agent
             fwd_pos = self.agents[i].front_pos
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
 
-            # Rotate left
-            if actions[i] == self.actions.left:
-                self.agents[i].dir -= 1
-                if self.agents[i].dir < 0:
-                    self.agents[i].dir += 4
-
-            # Rotate right
-            elif actions[i] == self.actions.right:
-                self.agents[i].dir = (self.agents[i].dir + 1) % 4
-
-            # Move forward
-            elif actions[i] == self.actions.forward:
-                if fwd_cell is not None:
-                    if fwd_cell.type == 'goal':
-                        # done = True
-                        self.agents[i].terminated = True
-                    elif fwd_cell.type == 'switch':
-                        self._handle_switch(i, rewards, fwd_pos, fwd_cell)
-                elif fwd_cell is None or fwd_cell.can_overlap():
-                    self.grid.set(*fwd_pos, self.agents[i])
-                    self.grid.set(*self.agents[i].pos, None)
-                    self.agents[i].pos = fwd_pos
-                self._handle_special_moves(i, rewards, fwd_pos, fwd_cell)
-
-            # Done action (not used by default)
-            elif actions[i] == self.actions.done:
-                pass
-            else:
-                assert False, "unknown action"
+            if fwd_cell is not None:
+                if fwd_cell.type == 'goal':
+                    # done = True
+                    self.agents[i].terminated = True
+                elif fwd_cell.type == 'switch':
+                    self._handle_switch(i, rewards, fwd_pos, fwd_cell)
+            elif fwd_cell is None or fwd_cell.can_overlap():
+                self.grid.set(*fwd_pos, self.agents[i])
+                self.grid.set(*self.agents[i].pos, None)
+                self.agents[i].pos = fwd_pos
+            self._handle_special_moves(i, rewards, fwd_pos, fwd_cell)
 
         # Timeout
         if self.step_count >= self.max_steps:
@@ -231,7 +229,7 @@ class DuoNavigationGameEnv(MultiGridEnv):
             rewards = np.ones(len(self.agents))
             done = True
         else:
-            rewards = np.zeros(len(self.agents))
+            rewards = -0.01 * np.ones(len(self.agents))
 
         if self.partial_obs:
             obs = self.gen_obs()

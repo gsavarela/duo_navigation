@@ -11,8 +11,8 @@ class ActorCritic:
         self.env = env
 
         # Constants
-        self.n_agents = 2
-        self.n_actions = 3
+        self.n_agents = len(env.agents)
+        self.n_actions = 4
         self.n_phi = 10
         self.n_varphi = 5
 
@@ -22,13 +22,13 @@ class ActorCritic:
 
         # Loop control
         self.mu = 0 
+        self.step_count = 0
+        self.alpha = 1
+        self.beta = 1
         self.reset()
 
     def reset(self, seed=0):
         np.random.seed(seed)
-        self.step_count = 0
-        self.alpha = 1
-        self.beta = 1
 
     def act(self, state):
         varphi = self.env.features.get_varphi(state)
