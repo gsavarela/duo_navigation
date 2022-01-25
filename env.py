@@ -69,7 +69,7 @@ class TeamActions:
         return sum([x * y for x, y in zip(actions, self.pow)])
 
 class Features:
-    def __init__(self, state, team_actions, n_critic=10, n_actor=5):
+    def __init__(self, state, team_actions, n_critic=10, n_actor=10):
         np.random.seed(0)
         self.state = state
         self.team_actions = team_actions
@@ -93,13 +93,12 @@ class Features:
 
 class NavigationActions:
     available=['right', 'down', 'left', 'up']
-    # 'right', 'down', 'left', 'up'
     right = 0
     down = 1
     left = 2
     up = 3
 
-class DuoNavigationGameEnv(MultiGridEnv):
+class DuoNavigationEnv(MultiGridEnv):
     """
     Environment in which both agents must reach a goal.
     """
@@ -110,9 +109,11 @@ class DuoNavigationGameEnv(MultiGridEnv):
         width=None,
         height=None,
         agents_index=[],
-        num_goals=[],
-        goals_index=[],
-        goals_rewards=[],
+        num_goals=[1],
+        goals_index=[0],
+        goals_rewards=[1],
+        random_starts=True,
+        seed=47,
         zero_sum = False,
         view_size=1
     ):
@@ -121,10 +122,13 @@ class DuoNavigationGameEnv(MultiGridEnv):
         self.goals_reward = goals_rewards
         self.zero_sum = zero_sum
         self.world = World
+        self.random_starts = random_starts
+        self.random_seed = seed
 
         agents = []
         for i in agents_index:
             agents.append(Agent(self.world, i, view_size=view_size))
+        self.goals_pos = [None] * len(agents)
 
         # RL stuff
         self.state = State(size, size, len(agents))
@@ -136,6 +140,7 @@ class DuoNavigationGameEnv(MultiGridEnv):
             width=width,
             height=height,
             max_steps=10000,
+            seed=seed,
             # Set this to True for maximum speed
             see_through_walls=False,
             agents=agents,
@@ -144,6 +149,64 @@ class DuoNavigationGameEnv(MultiGridEnv):
             partial_obs=False
         )
 
+    def place_obj(self,
+                  obj,
+                  top=None,
+                  size=None,
+                  reject_fn=None,
+                  max_tries=math.inf
+                  ):
+        """
+        Place an object at an empty position in the grid
+
+        :param top: top-left position of the rectangle where to place
+        :param size: size of the rectangle where to place
+        :param reject_fn: function to filter out potential positions
+        """
+
+        if top is None:
+            top = (0, 0)
+        else:
+            top = (max(top[0], 0), max(top[1], 0))
+
+        if size is None:
+            size = (self.grid.width, self.grid.height)
+
+        if self.grid.get(*top) is None:
+            pos = top
+        else:
+            num_tries = 0
+
+            while True:
+                # This is to handle with rare cases where rejection sampling
+                # gets stuck in an infinite loop
+                if num_tries > max_tries:
+                    raise RecursionError('rejection sampling failed in place_obj')
+
+                num_tries += 1
+
+                pos = np.array((
+                    self._rand_int(top[0], min(top[0] + size[0], self.grid.width)),
+                    self._rand_int(top[1], min(top[1] + size[1], self.grid.height))
+                ))
+
+                # Don't place the object on top of another object
+                if self.grid.get(*pos) != None:
+                    continue
+
+                # Check if there is a filtering criterion
+                if reject_fn and reject_fn(self, pos):
+                    continue
+
+                break
+
+        self.grid.set(*pos, obj)
+
+        if obj is not None:
+            obj.init_pos = pos
+            obj.cur_pos = pos
+
+        return pos
 
     def _gen_grid(self, width, height):
         self.grid = Grid(width, height)
@@ -154,9 +217,12 @@ class DuoNavigationGameEnv(MultiGridEnv):
         self.grid.vert_wall(self.world, 0, 0)
         self.grid.vert_wall(self.world, width-1, 0)
 
-        for number, index, reward in zip(self.num_goals, self.goals_index, self.goals_reward):
+        # Never overwrite goal.
+        g = zip(self.num_goals, self.goals_index, self.goals_reward, self.goals_pos)
+        for number, index, reward, pos in g:
             for i in range(number):
-                self.place_obj(Goal(self.world, index, reward))
+                goal_pos = self.place_obj(Goal(self.world, index, reward), top=pos)
+                if pos is None: self.goals_pos[i] = goal_pos
 
         # Randomize the player start position and orientation
         for a in self.agents:
@@ -180,12 +246,13 @@ class DuoNavigationGameEnv(MultiGridEnv):
 
         rewards = np.zeros(len(actions))
         done = False
+        goals = [False for _ in range(len(self.agents))]
 
         for i in order:
 
-            if self.agents[i].terminated or self.agents[i].paused or not self.agents[i].started:
+            # uses terminated as indicator that it has reached the goal.
+            if self.agents[i].terminated  or self.agents[i].paused or not self.agents[i].started:
                 continue
-
 
             # Align according to current orientation
             if actions[i] == self.actions.right:
@@ -210,7 +277,7 @@ class DuoNavigationGameEnv(MultiGridEnv):
             if fwd_cell is not None:
                 if fwd_cell.type == 'goal':
                     # done = True
-                    self.agents[i].terminated = True
+                    goals[i] = True
                 elif fwd_cell.type == 'switch':
                     self._handle_switch(i, rewards, fwd_pos, fwd_cell)
             elif fwd_cell is None or fwd_cell.can_overlap():
@@ -224,10 +291,9 @@ class DuoNavigationGameEnv(MultiGridEnv):
             done = True
 
         # Victory
-        if all([ag.terminated for ag in self.agents]):
-            # reward 1
-            rewards = np.ones(len(self.agents))
+        if all(goals):
             done = True
+            rewards = np.ones(len(self.agents))
         else:
             rewards = -0.01 * np.ones(len(self.agents))
 
@@ -244,6 +310,7 @@ class DuoNavigationGameEnv(MultiGridEnv):
         # Generate a new random grid at the start of each episode
         # To keep the same grid for each episode, call env.seed() with
         # the same seed before calling env.reset()
+        if not self.random_starts: self.seed(seed=self.random_seed)
         self._gen_grid(self.width, self.height)
 
         # These fields should be defined by _gen_grid
@@ -268,23 +335,30 @@ class DuoNavigationGameEnv(MultiGridEnv):
             positions = [ag.pos for ag in self.agents]
         return self.state.get(positions)
 
-class DuoNavigationGameEnv(DuoNavigationGameEnv):
+class DuoNavigationGameEnv(DuoNavigationEnv):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        flags = kwargs['flags']
+
+        # Gather enviroment variables
+        size = flags.size + 2
+        n_agents = flags.n_agents
+        random_starts = flags.random_starts 
+        seed = flags.seed
+        agents_index = [i for i in range(1, n_agents + 1)]
+        
+
         super(DuoNavigationGameEnv, self).__init__(
-            size=6,
-            agents_index=[1, 2],
-            num_goals=[1],
-            goals_index=[0],
-            goals_rewards=[1],
-            zero_sum=False
+            size=size,
+            agents_index=agents_index,
+            random_starts=random_starts,
+            seed=seed,
         )
 
 def main():
-
     register(
         id='duo-navigation-v0',
-        entry_point='duo:DuoNavigationGameEnv',
+        entry_point='env:DuoNavigationGameEnv',
     )
     env = gym.make('duo-navigation-v0')
 
@@ -292,18 +366,16 @@ def main():
 
     nb_agents = len(env.agents)
     
-
     while True:
-        env.render(mode='human', highlight=True)
-        time.sleep(0.1)
+       env.render(mode='human', highlight=True)
+       time.sleep(0.1)
 
-        actions = [env.action_space.sample() for _ in range(nb_agents)]
+       actions = [env.action_space.sample() for _ in range(nb_agents)]
 
-        next_state, next_reward, done, _ = env.step(actions)
+       next_state, next_reward, done, _ = env.step(actions)
 
-        if done:
-            break
-
+       if done:
+           break
 
 if __name__ == "__main__":
     main()
