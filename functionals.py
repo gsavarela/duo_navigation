@@ -38,12 +38,23 @@ def calculate_transitions(env, agent):
     # Logs the following quantities for (state, action)
     rows, cols = range(1, env.height - 1),  range(1, env.width - 1)
     gs = env.goals_pos[0].tolist()
+    # Coordinate axis to states.
     def p2s(x, y): return env.state.lin(np.array([y, x])) 
-    # Those are visitible states.
-    states = [p2s(r, c) for r in rows for c in cols if [c, r] != gs]
+    # Individual actions to joint actions.
+    def i2j(u): return env.team_actions.get(u)
+
+    # Those are visitable states.
+    if agent.n_agents == 1:
+        states = [p2s(r, c) for r in rows for c in cols if [c, r] != gs]
+    else:
+        positions = [np.array([c, r])
+                for r in rows for c in cols if [c, r] != gs]
+        states = [env.state.get([p1, p2]) for p2 in positions for p1 in positions]
     # All possible actions.
     n_joint_actions = env.team_actions.n_team_actions
-    actions = [*range(n_joint_actions)]
+    joint_actions = [*range(n_joint_actions)]
+    n_agents = agent.n_agents 
+    individual_actions = [*range(agent.n_actions)]
 
     q = calculate_q_function(env, agent)
     v = calculate_v_function(env, agent)
@@ -57,7 +68,7 @@ def calculate_transitions(env, agent):
         if not updated: 
             trdict['timestep'].append(env.step_count)
             trdict['state'].append(tr[0]) # state
-            trdict['actions'].append(tr[1][0]) # actions
+            trdict['actions'].append(i2j(tr[1])) # actions
             trdict['next_rewards'].append(np.mean(tr[2])) # reward
             trdict['next_state'].append(tr[3]) # next_state
             trdict['next_actions'].append(tr[4][0]) # next_actions
@@ -68,19 +79,19 @@ def calculate_transitions(env, agent):
             pi_key += "'"
 
         # v-function, q-function before the update.
-        for st in states:
-            key = f'{v_key}({st})'
-            trdict[key].append(v(st)) # next_actions
-            for ac in actions:
-                key = f'{q_key}({st}, {ac})'
-                trdict[key].append(q(st, [ac])) # next_actions
+        for ag in range(n_agents):
+            for st in states:
+                key = f'{v_key}_{ag}({st})'
+                trdict[key].append(v(st)) # next_actions
+                for ac in joint_actions:
+                    key = f'{q_key}_{ag}({st}, {ac})'
+                    trdict[key].append(q(st, [ac])) # next_actions
 
-                key = f'{a_key}({st}, {ac})'
-                trdict[key].append(a(st, [ac])) # next_actions
+                    key = f'{a_key}_{ag}({st}, {ac})'
+                    trdict[key].append(a(st, [ac])) # next_actions
 
-                # FIXME: This will break for multi-agent systems.
-                # PI regulates with individual agents.
-                key = f'{pi_key}({st}, {ac})'
-                trdict[key].append(pi(st)[ac]) # next_actions
+                for ac in individual_actions:
+                    key = f'{pi_key}_{ag}({st}, {ac})'
+                    trdict[key].append(pi(st, ag)[ac]) # next_actions
 
     return fn_tr

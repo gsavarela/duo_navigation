@@ -39,64 +39,126 @@ def globally_averaged_plot(mus, img_path):
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     file_name = img_path / 'globally_averaged_return.png'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.close()
 
 def advantages_plot(advantages, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3, [3])]):
     
     n_steps = len(advantages)
     # Makes a list of dicts.
-    ld = [dict(adv) for adv in advantages]
+    ld = [dict(adv) for adv in advantages if adv[-1] is not None]
     # Converts a list of dicts into dictionary of lists.
     dl = {k: [d[k] for d in ld] for k in ld[0]}
     for x, ys in state_actions:
-        fig = plt.figure()
-        fig.set_size_inches(FIGURE_X, FIGURE_Y)
-        X = np.linspace(1, n_steps, n_steps)
-        Y = np.array(dl[x])
-        labels = tuple([f'Best action {act2str(y)}' for y in ys])
+        if x in dl:
+            fig = plt.figure()
+            fig.set_size_inches(FIGURE_X, FIGURE_Y)
+            X = np.linspace(1, n_steps, n_steps)
+            Y = np.array(dl[x])
+            labels = tuple([f'Best action {act2str(y)}' for y in ys])
 
-        plt.suptitle(f'Advantages State {x}')
-        plt.plot(X,Y, label=labels)
-        plt.xlabel('Timesteps')
-        plt.ylabel('Advantages')
-        plt.legend(loc='center right')
+            plt.suptitle(f'Advantages State {x}')
+            plt.plot(X,Y, label=labels)
+            plt.xlabel('Timesteps')
+            plt.ylabel('Advantages')
+            plt.legend(loc='center right')
 
-        file_name = (results_path / f'advantages_state_{x}.pdf').as_posix()
-        plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-        file_name = (results_path / f'advantages_state_{x}.png').as_posix()
-        plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            file_name = (results_path / f'advantages_state_{x}.pdf').as_posix()
+            plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            file_name = (results_path / f'advantages_state_{x}.png').as_posix()
+            plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            plt.close()
 
 def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3, [3])]):
     
     n_steps = len(q_values)
     # Makes a list of dicts.
-    ld = [dict(adv) for adv in q_values]
+    ld = [dict(qval) for qval in q_values if qval[-1] is not None]
     # Converts a list of dicts into dictionary of lists.
     dl = {k: [d[k] for d in ld] for k in ld[0]}
     for x, ys in state_actions:
-        fig = plt.figure()
-        fig.set_size_inches(FIGURE_X, FIGURE_Y)
-        X = np.linspace(1, n_steps, n_steps)
-        Y = np.array(dl[x])
-        labels = tuple([f'Best action {act2str(y)}' for y in ys])
+        if x in dl:
+            fig = plt.figure()
+            fig.set_size_inches(FIGURE_X, FIGURE_Y)
+            X = np.linspace(1, n_steps, n_steps)
+            Y = np.array(dl[x])
+            labels = tuple([f'Best action {act2str(y)}' for y in ys])
 
-        plt.suptitle(f'Q-values State {x}')
-        plt.plot(X,Y, label=labels)
-        plt.xlabel('Timesteps')
-        plt.ylabel('Relative Q-values')
-        plt.legend(loc='center right')
+            plt.suptitle(f'Q-values State {x}')
+            plt.plot(X,Y, label=labels)
+            plt.xlabel('Timesteps')
+            plt.ylabel('Relative Q-values')
+            plt.legend(loc='center right')
 
-        file_name = (results_path / f'q_values_state_{x}.pdf').as_posix()
-        plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-        file_name = (results_path / f'q_values_state_{x}.png').as_posix()
-        plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            file_name = (results_path / f'q_values_state_{x}.pdf').as_posix()
+            plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            file_name = (results_path / f'q_values_state_{x}.png').as_posix()
+            plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+            plt.close()
+
+
+def display_ac2(env, agent):
+    goal_pos = env.goals_pos[0]
+    rows, cols = [*range(1, env.height - 1)], [*range(1, env.width - 1)]
+    def phi(x , y):
+        return env.features.get_phi(x, y)
+    print(env)
+    agents_positions = [np.array([c, r])
+            for r in rows for c in cols if [c, r] != goal_pos.tolist()]
+
+    margin = '#' * 45
+    print(f'{margin} GOAL {margin}')
+    print(f'Goal {goal_pos}')
+    print(f'{margin} ACTOR {margin}')
+    for agent_pos_2 in agents_positions:
+        for agent_pos_1 in agents_positions:
+            if not np.array_equal(agent_pos_1, agent_pos_2):
+                # Position to state.
+                positions = [agent_pos_1, agent_pos_2]
+                state = env.state.get(positions)
+                varphi = env.features.get_varphi(state)
+
+                # Get policies.
+                pi_0, pi_1 = agent.pi(varphi, 0), agent.pi(varphi, 1)
+                act_0, act_1 = np.argmax(pi_0), np.argmax(pi_1)
+                ba_0, ba_1 = best_actions(agent_pos_1, goal_pos), best_actions(agent_pos_2, goal_pos)
+                msg = (f'\t{state}'
+                       f'\t{pos2str(agent_pos_1)}, {pos2str(agent_pos_2)}'
+                       f'\t{pi2str(pi_0)}, {pi2str(pi_1)}'
+                       f'\t{act2str(act_0)}, {act2str(act_1)}'
+                       f'\t{acts2str(ba_0)}, {acts2str(ba_1)}')
+                print(msg)
+
+    print(f'{margin} CRITIC {margin}')
+    actions = [[a] for a in range(env.team_actions.n_team_actions)]
+    # TODO: Handles centralized critic only. Where there is only one critic.
+    # For individual or consensus agents there are n_agent critics.
+    for agent_pos_2 in agents_positions:
+        for agent_pos_1 in agents_positions:
+            if not np.array_equal(agent_pos_1, agent_pos_2):
+                # Position to state.
+                positions = [agent_pos_1, agent_pos_2]
+                state = env.state.get(positions)
+                qs = []
+                for act in actions:
+                    qs.append(phi(state, act) @ agent.omega)
+                act_1 = (np.argmax(qs) // 4)
+                act_0 = (np.argmax(qs) % 4)
+                ba_0, ba_1 = best_actions(agent_pos_1, goal_pos), best_actions(agent_pos_2, goal_pos)
+                msg = (f'\t{state}'
+                       f'\t{pos2str(agent_pos_1)}, {pos2str(agent_pos_2)}'
+                       f'\t{q2str(qs)}'
+                       f'\t{act2str(act_0)}, {act2str(act_1)}'
+                       f'\t{acts2str(ba_0)}, {acts2str(ba_1)}')
+                print(msg)
 
 def display_ac(env, agent):
-    
+
     goal_pos = env.goals_pos[0]
     def phi(x , y):
         return env.features.get_phi(x, y)
     print(env)
     margin = '#' * 30
+
     print(f'{margin} ACTOR {margin}')
     for k in range(agent.n_agents):
         for i in range(1, env.width - 1):

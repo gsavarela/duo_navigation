@@ -11,9 +11,9 @@ from gym.envs.registration import register
 import numpy as np
 
 from plots import (globally_averaged_plot, advantages_plot,
-        q_values_plot, display_ac, validation_plot)
-from logs import logger
-from utils import str2bool, transition_update_df
+        q_values_plot, display_ac, display_ac2, validation_plot)
+from logs import logger, transition_update_log, best_actions_log
+from utils import str2bool
 
 from centralized import CentralizedActorCritic as RLAgent
 # from ac import OptimalAgent as RLAgent
@@ -41,10 +41,11 @@ parser.add_argument('-d', '--decay', default=True, type=str2bool,
 
 parser.add_argument('-e', '--episodes', default=1, type=int,
         help='''Regulates the number of re-starts after the
-                GOAL has been reached.''')
+                GOAL has been reached. Keep in mind that the
+                task is continuing''')
 
 parser.add_argument('-m', '--max_steps', default=10000, type=int,
-        help='''Regulates the maximum number of transitions.''')
+        help='''Regulates the maximum number of steps.''')
 
 parser.add_argument('-n', '--n_agents', default=2, choices=[1, 2], type=int,
         help='''The number of agents on the grid:
@@ -81,6 +82,8 @@ def main(flags):
     # Loop control and execution flags.
     render = flags.render
     episodes = flags.episodes
+    max_steps = flags.max_steps
+    n_agents = flags.n_agents
 
     # Actor-Critic parameters. 
     env = gym.make('duo-navigation-v0')
@@ -96,15 +99,18 @@ def main(flags):
     config_path = experiment_dir / 'config.json'
     with config_path.open('w') as f:
         json.dump(vars(flags), f)
-
-    duration = 0
-    min_step_count = 1e5
+    # state_actions 
+    # if n_agents == 1:
+    state_actions = best_actions_log(env, experiment_dir)
+    # else:
+    #     state_actions = [(3, [3]), (12, [12])]
+    
     n_agents = len(env.agents)
     globally_averaged_returns = []
     q_values = []
     advantages = []
     tr_dict = defaultdict(list)
-    logger_log = logger(env, agent)  
+    logger_log = logger(env, agent, state_actions)  
     for episode in range(episodes):
         state = env.reset()
         actions = agent.act(state)
@@ -115,7 +121,6 @@ def main(flags):
                 time.sleep(0.1)
 
             next_state, next_reward, done, _ = env.step(actions)
-
             agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
             tr = (state, actions, next_reward, next_state, next_actions)
@@ -126,25 +131,24 @@ def main(flags):
             agent.update(*tr)
             logger_log(advantages, q_values, tr, tr_dict, updated=True)
 
-            print(f'{env.step_count}:{agent.mu}')
+            print(f'TRAIN: Episode: {episode}\t'
+                  f'Steps: {env.step_count}\t'
+                  f'Globally Averaged J: {agent.mu}')
             state = next_state 
             actions = next_actions
             if done:
                 break
-
-    msg = (f'TRAIN: steps {str(env.step_count)}\t'
-           f'mu:{agent.mu:0.5f}:\t'
-           f'\t:best {min_step_count}.')
-
-    print(msg)
     agent.save_checkpoints(experiment_dir,str(episodes))
 
     globally_averaged_plot(globally_averaged_returns, experiment_dir)
-    advantages_plot(advantages, experiment_dir)
-    q_values_plot(q_values, experiment_dir)
-    transition_update_df(tr_dict, experiment_dir)
+    advantages_plot(advantages, experiment_dir, state_actions)
+    q_values_plot(q_values, experiment_dir, state_actions)
+    transition_update_log(tr_dict, experiment_dir)
 
-    display_ac(env, agent)
+    if agent.n_agents == 1:
+        display_ac(env, agent)
+    else:
+        display_ac2(env, agent)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
 
@@ -155,8 +159,9 @@ def main(flags):
            env.render(mode='human', highlight=True)
            time.sleep(0.1)
 
-       next_state, next_reward, done, _ = env.step(actions)
+       next_state, next_reward, done, _ = env.step(agent.act(state))
        validation_rewards.append(np.mean(next_reward))
+       state = next_state
 
        if done:
            break

@@ -1,6 +1,8 @@
+from collections import defaultdict
+import re
 import numpy as np
 import pandas as pd
-from utils import act2str, acts2str, pi2str
+from utils import act2str, acts2str, pi2str, best_actions
 from functionals import calculate_advantage as advantage_functional
 from functionals import calculate_q_function as q_functional
 from functionals import calculate_transitions as transitions_functional
@@ -79,12 +81,12 @@ def display_actor(env, agent):
 
     return pis_dataframes, actions_dataframes
 
-def logger(env, agent):
+def logger(env, agent, state_actions):
     advfn = advantage_functional(env, agent)
-    advlogger = advantage_log(advfn)
+    advlogger = advantage_log(advfn, state_actions)
 
     qfn = q_functional(env, agent)
-    qlogger = q_log(qfn)
+    qlogger = q_log(qfn, state_actions)
 
     tr_logger = transitions_functional(env, agent)
 
@@ -111,3 +113,57 @@ def q_log(fn_q, state_actions=[(0, [0]),(1, [0, 3]),(3, [3])]):
             res += [(x, [fn_q(x, [y]) for y in ys])]
         q_values.append(res)
     return fn_log
+
+def transition_update_log(tr_dict, experiment_dir):
+    # Convert single dataframe into multiple
+    df = pd.DataFrame.from_dict(tr_dict). \
+            set_index('timestep', inplace=False)
+
+    columns = df.columns.values.tolist()
+    # sort key for (state, action) 
+    def srt(x): return eval(re.search(r'\((.*?)\)',x).group(1))
+
+    # base transitions.
+    trdf = df[['state', 'actions', 'next_rewards', 'next_state', 'next_actions']]
+
+    # q-functions, a-functions, policies
+    for k in ('Q', 'A', 'pi', 'V'):
+        cix = [k in col for col in columns]
+        kdf = df.loc[:, cix]
+
+        kcols = sorted(kdf.columns.values.tolist(), key=srt)
+        kdf = kdf.loc[:, kcols]
+
+        kdf = pd.concat((trdf, kdf), axis=1)
+        kdf.to_csv(experiment_dir / f'{k}.csv')
+
+    return df
+
+def best_actions_log(env, exp_dir=None):
+    """Paginates the positions on the environment."""
+    goal_pos = env.goals_pos[0]
+    rows, cols = range(1, env.height - 1), range(1, env.width - 1)
+
+    data = defaultdict(list)
+    for c in cols:
+        for r in rows:
+            agent_pos = np.array([c, r])
+            state = env.state.lin(agent_pos)
+            if not np.array_equal(agent_pos, goal_pos):
+
+                data['state'].append(state)
+                data['pos'].append(agent_pos)
+                bas = best_actions(agent_pos, goal_pos)
+                data['actions'].append(bas)
+                data['moves'].append(acts2str(bas))
+
+    df = pd.DataFrame.from_dict(data). \
+             set_index('state', inplace=False)
+
+    if exp_dir is not None: df.to_csv(exp_dir / 'best_actions.csv')
+    return [*df['actions'].items()]
+
+                
+
+            
+

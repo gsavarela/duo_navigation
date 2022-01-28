@@ -52,30 +52,3 @@ def best_actions(agent_pos, goal_pos):
         if next_dist < prev_dist: res.append(i) 
     return res
 
-def transition_update_df(tr_dict, experiment_dir):
-    # Convert single dataframe into multiple
-    df = pd.DataFrame.from_dict(tr_dict). \
-            set_index('timestep', inplace=False)
-
-    columns = df.columns.values.tolist()
-    # sort key for (state, action) 
-    def srtk1(x): return eval(x[-6:])
-    # sort key for (state) 
-    def srtk2(x): return eval(x[-3:])
-
-    # base transitions.
-    trdf = df[['state', 'actions', 'next_rewards', 'next_state', 'next_actions']]
-
-    # q-functions, a-functions, policies
-    for k, fn in [('Q', srtk1), ('A', srtk1), ('pi', srtk1), ('V', srtk2)]:
-        cix = [k in col for col in columns]
-        kdf = df.loc[:, cix]
-
-        kcols = sorted(kdf.columns.values.tolist(), key=fn)
-        kdf = kdf.loc[:, kcols]
-
-        kdf = pd.concat((trdf, kdf), axis=1)
-        kdf.to_csv(experiment_dir / f'{k}.csv')
-
-    return df
-
