@@ -1,5 +1,9 @@
 import numpy as np
 import pandas as pd
+from utils import act2str, acts2str, pi2str
+from functionals import calculate_advantage as advantage_functional
+from functionals import calculate_q_function as q_functional
+from functionals import calculate_transitions as transitions_functional
 
 def pretty_print_df(df):
     # Pandas display options.
@@ -9,22 +13,6 @@ def pretty_print_df(df):
                             'display.colheader_justify', 'center',
                             'display.precision', 3):
         print(df)
-
-def act2str(act):
-    if act == 0: return '>'
-    if act == 1: return 'V'
-    if act == 2: return '<'
-    if act == 3: return '^'
-    raise KeyError(f'{act} is not a valid action')
-
-def act2str2(acts):
-    moves = ', '.join([act2str(act) for act in acts])
-    return f'({moves})'
-
-def pi2str(probs):
-    strprobs = [f'{prob:0.2f}' for prob in probs]
-    strprobs = ', '.join(strprobs)
-    return f'({strprobs})'
 
 def display_critic(env, agent):
     '''Displays Q-value'''
@@ -41,7 +29,7 @@ def display_critic(env, agent):
             positions = [np.array([j, i]), np.array([j, i])] 
             state = env.state.get(positions)
             scores = [env.features.get_phi(state, ac) @ agent.omega for ac in actions]
-            disact = act2str2(actions[np.argmax(scores)])
+            disact = acts2str(actions[np.argmax(scores)])
 
             actions_scores[i].append(np.argmax(scores))
             actions_display[i].append(disact)
@@ -68,7 +56,7 @@ def display_actor(env, agent):
             pi_display[k][i] = []
             actions_display[k][i] = []
             for j in range(1, env.height - 1): 
-                positions = [np.array([j, i]), np.array([i, j])] 
+                positions = [np.array([i, j]), np.array([i, j])] 
                 state = env.state.get(positions)
                 varphi = env.features.get_varphi(state)
                 pi_k = agent.pi(varphi, k)
@@ -90,3 +78,36 @@ def display_actor(env, agent):
         pretty_print_df(actions_dataframes[k])
 
     return pis_dataframes, actions_dataframes
+
+def logger(env, agent):
+    advfn = advantage_functional(env, agent)
+    advlogger = advantage_log(advfn)
+
+    qfn = q_functional(env, agent)
+    qlogger = q_log(qfn)
+
+    tr_logger = transitions_functional(env, agent)
+
+    def log(advantages, q_values, tr, tr_dict, updated):
+        if not updated:
+            advlogger(advantages)
+            qlogger(q_values)
+        tr_logger(tr, tr_dict, updated)
+    return log
+
+def advantage_log(fn_a, state_actions=[(0, [0]),(1, [0, 3]),(3, [3])]):
+    def fn_log(advantages):
+        res = []
+        for x, ys in state_actions:
+            advs = fn_a(x)
+            res += [(x, [advs[y] for y in ys])]
+        advantages.append(res)
+    return fn_log
+
+def q_log(fn_q, state_actions=[(0, [0]),(1, [0, 3]),(3, [3])]):
+    def fn_log(q_values):
+        res = []
+        for x, ys in state_actions:
+            res += [(x, [fn_q(x, [y]) for y in ys])]
+        q_values.append(res)
+    return fn_log

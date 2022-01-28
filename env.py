@@ -1,13 +1,4 @@
-"""DuoNavigationGame: Team navigation game for Reinforcement Learning
-
-   MDP:
-   ====
-    * N = 2
-    * |S| = (width * height - (N - 2)) ** |direction * N|
-    * A[i] = {`left`, `right`, `forward`} --> A = A[0] x ... x A[N-1]
-    * r = {r[i] = 1 if ag[i].terminated else 0}
-
-"""
+'''DuoNavigationGame: Team navigation game for Reinforcement Learning.'''
 import time
 
 import numpy as np
@@ -69,18 +60,21 @@ class TeamActions:
         return sum([x * y for x, y in zip(actions, self.pow)])
 
 class Features:
-    def __init__(self, state, team_actions, n_critic=10, n_actor=10):
+    def __init__(self, state, team_actions, n_critic=10, n_actor=5):
         np.random.seed(0)
         self.state = state
         self.team_actions = team_actions
+        n_joint_actions = team_actions.n_team_actions
 
-        self.n_phi = (state.n_states * team_actions.n_team_actions, n_critic)
+        self.n_phi = (state.n_states * n_joint_actions, n_critic)
         self.n_critic = n_critic
-        self.phi = uniform(size=self.n_phi) 
+        self.phi = uniform(low=-0.5, high=0.5, size=self.n_phi) 
+        self.phi = self.phi / np.linalg.norm(self.phi)
 
         self.n_varphi = (state.n_states, team_actions.n_actions, state.n_agents, n_actor)
         self.n_actor = n_actor
-        self.varphi = uniform(size=self.n_varphi) 
+        self.varphi = uniform(low=-0.5, high=0.5, size=self.n_varphi) 
+        self.varphi = self.varphi / np.linalg.norm(self.phi) 
 
     def get_phi(self, state, actions): 
         k = self.team_actions.n_team_actions
@@ -113,6 +107,7 @@ class DuoNavigationEnv(MultiGridEnv):
         goals_index=[0],
         goals_rewards=[1],
         random_starts=True,
+        max_steps=10000,
         seed=47,
         zero_sum = False,
         view_size=1
@@ -128,7 +123,7 @@ class DuoNavigationEnv(MultiGridEnv):
         agents = []
         for i in agents_index:
             agents.append(Agent(self.world, i, view_size=view_size))
-        self.goals_pos = [None] * len(agents)
+        self.goals_pos = [None] * len(num_goals)
 
         # RL stuff
         self.state = State(size, size, len(agents))
@@ -139,7 +134,7 @@ class DuoNavigationEnv(MultiGridEnv):
             grid_size=size,
             width=width,
             height=height,
-            max_steps=10000,
+            max_steps=max_steps,
             seed=seed,
             # Set this to True for maximum speed
             see_through_walls=False,
@@ -222,6 +217,7 @@ class DuoNavigationEnv(MultiGridEnv):
         for number, index, reward, pos in g:
             for i in range(number):
                 goal_pos = self.place_obj(Goal(self.world, index, reward), top=pos)
+
                 if pos is None: self.goals_pos[i] = goal_pos
 
         # Randomize the player start position and orientation
@@ -273,6 +269,7 @@ class DuoNavigationEnv(MultiGridEnv):
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
+            # print(actions[0], self.agents[i].pos, fwd_pos, 'free' if fwd_cell is None else fwd_cell.type)
 
             if fwd_cell is not None:
                 if fwd_cell.type == 'goal':
@@ -292,15 +289,14 @@ class DuoNavigationEnv(MultiGridEnv):
 
         # Victory
         if all(goals):
-            done = True
+            # done = True
             rewards = np.ones(len(self.agents))
         else:
-            rewards = -0.01 * np.ones(len(self.agents))
+            rewards = np.zeros(len(self.agents))
 
         if self.partial_obs:
             obs = self.gen_obs()
         else:
-            # obs = [self.grid.encode_for_agents(self.agents[i].pos) for i in range(len(actions))]
             positions = [ag.pos for ag in self.agents]
             s_t = self.state.get(positions)
         return s_t, rewards, done, {}
@@ -330,8 +326,6 @@ class DuoNavigationEnv(MultiGridEnv):
         if self.partial_obs:
             obs = self.gen_obs()
         else:
-            # obs = [self.grid.encode_for_agents(self.objects, self.agents[i].pos) for i in range(len(self.agents))]
-            #obs=[self.objects.normalize_obs*ob for ob in obs]
             positions = [ag.pos for ag in self.agents]
         return self.state.get(positions)
 
@@ -346,6 +340,7 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
         random_starts = flags.random_starts 
         seed = flags.seed
         agents_index = [i for i in range(1, n_agents + 1)]
+        max_steps = flags.max_steps
         
 
         super(DuoNavigationGameEnv, self).__init__(
@@ -353,6 +348,7 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
             agents_index=agents_index,
             random_starts=random_starts,
             seed=seed,
+            max_steps=flags.max_steps
         )
 
 def main():
