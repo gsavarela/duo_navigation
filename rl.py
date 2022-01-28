@@ -15,7 +15,7 @@ from plots import (globally_averaged_plot, advantages_plot,
 from logs import logger
 from utils import str2bool, transition_update_df
 
-from ac import CentralizedActorCritic as RLAgent
+from centralized import CentralizedActorCritic as RLAgent
 # from ac import OptimalAgent as RLAgent
 
 parser = argparse.ArgumentParser(description='''
