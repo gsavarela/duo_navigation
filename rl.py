@@ -86,7 +86,7 @@ def main(flags):
     n_agents = flags.n_agents
 
     # Actor-Critic parameters. 
-    env = gym.make('duo-navigation-v0')
+    env = gym.make('duo-navigation-v0').unwrapped
     agent = RLAgent(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
 
     # Notify the user what's going on.
@@ -100,10 +100,7 @@ def main(flags):
     with config_path.open('w') as f:
         json.dump(vars(flags), f)
     # state_actions 
-    # if n_agents == 1:
     state_actions = best_actions_log(env, experiment_dir)
-    # else:
-    #     state_actions = [(3, [3]), (12, [12])]
     
     n_agents = len(env.agents)
     globally_averaged_returns = []

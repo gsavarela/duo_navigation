@@ -141,7 +141,6 @@ def transition_update_log(tr_dict, experiment_dir):
 
 def best_actions_log(env, exp_dir=None):
     """Paginates the positions on the environment."""
-    goal_pos = env.goals_pos[0]
     rows, cols = range(1, env.height - 1), range(1, env.width - 1)
 
     data = defaultdict(list)
@@ -149,11 +148,11 @@ def best_actions_log(env, exp_dir=None):
         for r in rows:
             agent_pos = np.array([c, r])
             state = env.state.lin(agent_pos)
-            if not np.array_equal(agent_pos, goal_pos):
+            if not np.array_equal(agent_pos, env.goal_pos):
 
                 data['state'].append(state)
                 data['pos'].append(agent_pos)
-                bas = best_actions(agent_pos, goal_pos)
+                bas = best_actions(agent_pos, env.goal_pos)
                 data['actions'].append(bas)
                 data['moves'].append(acts2str(bas))
 

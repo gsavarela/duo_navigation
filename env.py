@@ -103,19 +103,11 @@ class DuoNavigationEnv(MultiGridEnv):
         width=None,
         height=None,
         agents_index=[],
-        num_goals=[1],
-        goals_index=[0],
-        goals_rewards=[1],
         random_starts=True,
         max_steps=10000,
         seed=47,
-        zero_sum = False,
         view_size=1
     ):
-        self.num_goals  = num_goals
-        self.goals_index = goals_index
-        self.goals_reward = goals_rewards
-        self.zero_sum = zero_sum
         self.world = World
         self.random_starts = random_starts
         self.random_seed = seed
@@ -123,7 +115,7 @@ class DuoNavigationEnv(MultiGridEnv):
         agents = []
         for i in agents_index:
             agents.append(Agent(self.world, i, view_size=view_size))
-        self.goals_pos = [None] * len(num_goals)
+        self.goal_pos = None
 
         # RL stuff
         self.state = State(size, size, len(agents))
@@ -186,7 +178,7 @@ class DuoNavigationEnv(MultiGridEnv):
                 ))
 
                 # Don't place the object on top of another object
-                if self.grid.get(*pos) != None:
+                if self.grid.get(*pos) is not None and not self.grid.get(*pos).can_overlap():
                     continue
 
                 # Check if there is a filtering criterion
@@ -212,94 +204,63 @@ class DuoNavigationEnv(MultiGridEnv):
         self.grid.vert_wall(self.world, 0, 0)
         self.grid.vert_wall(self.world, width-1, 0)
 
-        # Never overwrite goal.
-        g = zip(self.num_goals, self.goals_index, self.goals_reward, self.goals_pos)
-        for number, index, reward, pos in g:
-            for i in range(number):
-                goal_pos = self.place_obj(Goal(self.world, index, reward), top=pos)
-
-                if pos is None: self.goals_pos[i] = goal_pos
+        # Never overwrite goal on reset.
+        self.goal_pos = self.place_obj(Goal(self.world, 0, 1), top=self.goal_pos)
 
         # Randomize the player start position and orientation
         for a in self.agents:
             self.place_agent(a)
 
-    def _reward(self, i, rewards, reward=1):
+    def _reward(self, rewards, goal_reward=1):
         """
         Compute the reward to be given upon success
         """
-        for j,a in enumerate(self.agents):
-            if a.index==i or a.index==0:
-                rewards[j]+=reward
-            if self.zero_sum:
-                if a.index!=i or a.index==0:
-                    rewards[j] -= reward
+        for j, ag in enumerate(self.agents):
+            rewards[j] = goal_reward if all(ag.pos == self.goal_pos) else 1e-3
 
     def step(self, actions):
         self.step_count += 1
-
-        order = np.random.permutation(len(actions))
-
-        rewards = np.zeros(len(actions))
         done = False
-        goals = [False for _ in range(len(self.agents))]
 
-        for i in order:
+        for i, ag in enumerate(self.agents):
 
             # uses terminated as indicator that it has reached the goal.
-            if self.agents[i].terminated  or self.agents[i].paused or not self.agents[i].started:
+            if ag.terminated  or ag.paused or not ag.started:
                 continue
 
             # Align according to current orientation
             if actions[i] == self.actions.right:
                 # Face right
-                self.agents[i].dir = 0 
+                ag.dir = 0 
             elif actions[i] == self.actions.down:
                 # Face down
-                self.agents[i].dir = 1
+                ag.dir = 1
             elif actions[i] == self.actions.left:
                 # Face left
-                self.agents[i].dir = 2 
+                ag.dir = 2 
             else:
                 # Face up
-                self.agents[i].dir = 3
+                ag.dir = 3
 
             # Get the position in front of the agent
-            fwd_pos = self.agents[i].front_pos
+            fwd_pos = ag.front_pos
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
-            # print(actions[0], self.agents[i].pos, fwd_pos, 'free' if fwd_cell is None else fwd_cell.type)
 
-            if fwd_cell is not None:
-                if fwd_cell.type == 'goal':
-                    # done = True
-                    goals[i] = True
-                elif fwd_cell.type == 'switch':
-                    self._handle_switch(i, rewards, fwd_pos, fwd_cell)
-            elif fwd_cell is None or fwd_cell.can_overlap():
-                self.grid.set(*fwd_pos, self.agents[i])
-                self.grid.set(*self.agents[i].pos, None)
-                self.agents[i].pos = fwd_pos
-            self._handle_special_moves(i, rewards, fwd_pos, fwd_cell)
+            if fwd_cell is None or fwd_cell.can_overlap():
+                self.grid.set(*fwd_pos, ag)
+                self.grid.set(*ag.pos, None)
+                ag.pos = fwd_pos
 
         # Timeout
         if self.step_count >= self.max_steps:
             done = True
 
-        # Victory
-        if all(goals):
-            # done = True
-            rewards = np.ones(len(self.agents))
-        else:
-            rewards = np.zeros(len(self.agents))
-
-        if self.partial_obs:
-            obs = self.gen_obs()
-        else:
-            positions = [ag.pos for ag in self.agents]
-            s_t = self.state.get(positions)
-        return s_t, rewards, done, {}
+        positions = [ag.pos for ag in self.agents]
+        state = self.state.get(positions)
+        rewards = np.zeros(len(actions)); self._reward(rewards) 
+        return state, rewards, done, {}
 
     
     def reset(self):
@@ -323,10 +284,8 @@ class DuoNavigationEnv(MultiGridEnv):
         self.step_count = 0
 
         # Return first observation
-        if self.partial_obs:
-            obs = self.gen_obs()
-        else:
-            positions = [ag.pos for ag in self.agents]
+        positions = [ag.pos for ag in self.agents]
+        self.state.get(positions)
         return self.state.get(positions)
 
 class DuoNavigationGameEnv(DuoNavigationEnv):
@@ -351,12 +310,13 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
             max_steps=flags.max_steps
         )
 
+
 def main():
     register(
         id='duo-navigation-v0',
         entry_point='env:DuoNavigationGameEnv',
     )
-    env = gym.make('duo-navigation-v0')
+    env = gym.make('duo-navigation-v0').unwrapped
 
     _ = env.reset()
 

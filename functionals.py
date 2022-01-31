@@ -37,7 +37,7 @@ def calculate_advantage(env, agent):
 def calculate_transitions(env, agent):
     # Logs the following quantities for (state, action)
     rows, cols = range(1, env.height - 1),  range(1, env.width - 1)
-    gs = env.goals_pos[0].tolist()
+    gs = list(env.goal_pos)
     # Coordinate axis to states.
     def p2s(x, y): return env.state.lin(np.array([y, x])) 
     # Individual actions to joint actions.

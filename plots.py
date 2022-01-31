@@ -97,13 +97,13 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
 
 
 def display_ac2(env, agent):
-    goal_pos = env.goals_pos[0]
+    goal_pos = env.goal_pos
     rows, cols = [*range(1, env.height - 1)], [*range(1, env.width - 1)]
     def phi(x , y):
         return env.features.get_phi(x, y)
     print(env)
     agents_positions = [np.array([c, r])
-            for r in rows for c in cols if [c, r] != goal_pos.tolist()]
+            for r in rows for c in cols if [c, r] != list(goal_pos)]
 
     margin = '#' * 45
     print(f'{margin} GOAL {margin}')
@@ -153,7 +153,7 @@ def display_ac2(env, agent):
 
 def display_ac(env, agent):
 
-    goal_pos = env.goals_pos[0]
+    goal_pos = env.goal_pos
     def phi(x , y):
         return env.features.get_phi(x, y)
     print(env)
@@ -164,16 +164,15 @@ def display_ac(env, agent):
         for i in range(1, env.width - 1):
             for j in range(1, env.height - 1):
                 agent_pos = np.array([i, j])
-                if not np.array_equal(agent_pos, goal_pos):
-                    # position to state
-                    state = env.state.lin(agent_pos)
-                    varphi = env.features.get_varphi(state)
-                    pi_k = agent.pi(varphi, k)
-                    act = np.argmax(pi_k)
-                    msg = (f'\t{state}\t{pos2str(agent_pos)}'
-                           f'\t{pi2str(pi_k)}\t{act2str(act)}'
-                           f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
-                    print(msg)
+                # position to state
+                state = env.state.lin(agent_pos)
+                varphi = env.features.get_varphi(state)
+                pi_k = agent.pi(varphi, k)
+                act = np.argmax(pi_k)
+                msg = (f'\t{state}\t{pos2str(agent_pos)}'
+                       f'\t{pi2str(pi_k)}\t{act2str(act)}'
+                       f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
+                print(msg)
 
     print(f'{margin} CRITIC {margin}')
     actions = [[a] for a in range(agent.n_actions)]
@@ -182,15 +181,14 @@ def display_ac(env, agent):
             for j in range(1, env.height - 1):
                 agent_pos = np.array([i, j])
                 qs = []
-                if not np.array_equal(agent_pos, goal_pos):
-                    # position to state
-                    state = env.state.lin(agent_pos)
-                    for act in actions:
-                        qs.append(phi(state, act) @ agent.omega)
-                    msg = (f'\t{state}\t{pos2str(agent_pos)}'
-                           f'\t{q2str(qs)}\t{act2str(np.argmax(qs))}'
-                           f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
-                    print(msg)
+                # position to state
+                state = env.state.lin(agent_pos)
+                for act in actions:
+                    qs.append(phi(state, act) @ agent.omega)
+                msg = (f'\t{state}\t{pos2str(agent_pos)}'
+                       f'\t{q2str(qs)}\t{act2str(np.argmax(qs))}'
+                       f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
+                print(msg)
 
 def validation_plot(rewards):
 
