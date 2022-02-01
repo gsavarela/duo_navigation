@@ -1,4 +1,4 @@
-'''SARSA: On policy TD(0) policy control.
+'''SARSA: On-policy TD(0) policy control.
 
     References:
     -----------
@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from numpy.random import rand, choice
 
+from decorators import int2act, act2int
 from utils import i2q, q2i
 
 class SARSATabular(object):
@@ -23,7 +24,6 @@ class SARSATabular(object):
         # Constants
         self.n_agents = len(env.agents)
         self.n_states = env.state.n_states
-        self.n_actions = env.team_actions.n_actions
         self.n_joint_actions = env.team_actions.n_team_actions
 
         # Parameters
@@ -41,15 +41,18 @@ class SARSATabular(object):
         np.random.seed(seed)
         if self.step_count > 0: self.epsilon = max(self.epsilon - self.epsilon_step, 1e-2)
 
+    @int2act
     def act(self, state):
         if rand() < self.epsilon:
-            return choice(self.n_actions, replace=True, size=self.n_agents).tolist()
+            ind = choice(self.n_joint_actions)
         else:
-            return i2q(np.argmax(self.Q[state, :]), self.n_agents)
+            ind = np.argmax(self.Q[state, :])
+        return ind
 
+    @act2int
     def update(self, state, actions, next_rewards, next_state, next_actions):
-        self.Q[state, q2i(actions)] += self.alpha * (next_rewards + self.gamma * \
-                self.Q[next_state, q2i(next_actions)] - self.Q[state, q2i(actions)])
+        self.Q[state, actions] += self.alpha * (next_rewards + self.gamma * \
+                self.Q[next_state, next_actions] - self.Q[state, actions])
         self.epsilon = max(1e-2, self.epsilon - 1e-4)
         self.step_count += 1
         

@@ -406,6 +406,72 @@ class DuoNavigationEnv(MultiGridEnv):
         self.state.get(positions)
         return self.state.get(positions)
 
+    def __str__(self):
+        """
+        Produce a pretty string of the environment's grid along with the agent.
+        A grid cell is represented by 2-character string, the first one for
+        the object and the second one for the color.
+        """
+
+        # Map of object types to short string
+        OBJECT_TO_STR = {
+            'wall': 'W',
+            'floor': 'F',
+            'door': 'D',
+            'key': 'K',
+            'ball': 'A',
+            'box': 'B',
+            'goal': 'G',
+            'lava': 'V',
+        }
+
+        # Short string for opened door
+        OPENDED_DOOR_IDS = '_'
+
+        # Map agent's direction to short string
+        AGENT_DIR_TO_STR = {
+            0: '>',
+            1: 'V',
+            2: '<',
+            3: '^'
+        }
+
+        str = ''
+
+        for j in range(self.grid.height):
+            for i in range(self.grid.width):
+                found = False
+                for ag in self.agents:
+                    if ([i, j] == ag.pos.tolist()):
+                        str += 2 * AGENT_DIR_TO_STR[ag.dir]
+                        found = True
+                if found: continue
+
+                c = self.grid.get(i, j)
+
+                if c == None:
+                    str += '  '
+                    continue
+
+                if c.type == 'door':
+                    if c.is_open:
+                        str += '__'
+                    elif c.is_locked:
+                        str += 'L' + c.color[0].upper()
+                    else:
+                        str += 'D' + c.color[0].upper()
+                    continue
+
+                try:
+                    str += OBJECT_TO_STR[c.type] + c.color[0].upper()
+                except Exception:
+                    import ipdb; ipdb.set_trace()
+
+            if j < self.grid.height - 1:
+                str += '\n'
+
+        return str
+
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
     def __init__(self, **kwargs):

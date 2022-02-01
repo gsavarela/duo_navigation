@@ -6,8 +6,9 @@ import json
 from pathlib import Path
 import time
 
-import gym
-from gym.envs.registration import register
+from env import make, register
+# from gym.envs.registration import register
+# from env import register
 import numpy as np
 
 from plots import (globally_averaged_plot, advantages_plot,
@@ -15,8 +16,9 @@ from plots import (globally_averaged_plot, advantages_plot,
 from logs import logger, transition_update_log, best_actions_log
 from utils import str2bool
 
-# from centralized import CentralizedActorCritic as RLAgent
-from sarsa import SARSATabular as RLAgent
+from agents import get_agent
+from agents import __all__ as AGENT_TYPES
+# from agents import SARSATabular as RLAgent
 # from ac import OptimalAgent as RLAgent
 
 parser = argparse.ArgumentParser(description='''
@@ -24,13 +26,15 @@ parser = argparse.ArgumentParser(description='''
 
     Usage:
     -----
-    > python -a 0.7 -b 0.2 -d 0 -e 100 -n 2 -s 4 -r 1 -v 0
-
+    > python rl.py -s 2 -n 2 -e 2000 -m 100 -R 0 -A SARSATabular
     Where
 ''')
 parser.add_argument('-a', '--alpha', default=0.5, type=float,
         help='''Alpha is the critic parameter:
                 Only active if `decay` is False.''')
+
+parser.add_argument('-A', '--agent_type', default='SARSATabular', type=str,
+        choices=AGENT_TYPES, help='''A Reinforcement Learning Agent.''')
 
 parser.add_argument('-b', '--beta', default=0.3, type=float,
         help='''Beta is the actor parameter:
@@ -74,30 +78,26 @@ def print_arguments(opts, timestamp):
     for k, v in vars(opts).items():
         print(f'\t{k}: {v}')
 
-def main(flags):
+def validate_arguments(opts):
+    assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
+                (opts.agent_type == 'CentralizedActorCritic' and not opts.episodic)
+def main(flags, timestamp):
 
-    # Instanciate
+    # Instanciate environment and agent
     register(
         id='duo-navigation-v0',
         entry_point='env:DuoNavigationGameEnv',
         kwargs={'flags': flags}
     )
+    env = make('duo-navigation-v0').unwrapped
+
+    agent = get_agent(env, flags) 
 
     # Loop control and execution flags.
     render = flags.render
     episodes = flags.episodes
-    max_steps = flags.max_steps
     n_agents = flags.n_agents
-
-    # Actor-Critic parameters. 
-    env = gym.make('duo-navigation-v0').unwrapped
-    # Actor-Critic Agent
-    # agent = RLAgent(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
-    agent = RLAgent(env) 
-
-    # Notify the user what's going on.
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    print_arguments(flags, timestamp)
+    iscontinuing = not flags.episodic
 
     # Save parameters
     experiment_dir = Path('data') / timestamp
@@ -105,16 +105,21 @@ def main(flags):
     config_path = experiment_dir / 'config.json'
     with config_path.open('w') as f:
         json.dump(vars(flags), f)
-    # state_actions 
     state_actions = best_actions_log(env, experiment_dir)
     
-    n_agents = len(env.agents)
-    globally_averaged_returns = []
     rewards = []
-    q_values = []
-    advantages = []
-    tr_dict = defaultdict(list)
-    # logger_log = logger(env, agent, state_actions)  
+
+    # TODO: Log as a decorator for functions.
+    # Takes snapshots of objects' internal states.
+    if iscontinuing:
+        q_values = []
+        advantages = []
+        tr_dict = defaultdict(list)
+        globally_averaged_returns = []
+        logger_log = logger(env, agent, state_actions)  
+    else:
+        rewards = []
+
     for episode in range(episodes):
         state = env.reset()
         actions = agent.act(state)
@@ -122,62 +127,76 @@ def main(flags):
         while True:
             if render:
                 env.render(mode='human', highlight=True)
-                time.sleep(0.05)
+                time.sleep(0.1)
             next_state, next_reward, done, _ = env.step(actions)
-            # agent.update_mu(next_reward)
+
+            if iscontinuing: agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
             tr = (state, actions, next_reward, next_state, next_actions)
-            # Log.
-            # globally_averaged_returns.append(np.mean(agent.mu))
-            rewards.append(np.mean(next_reward))
-            # TODO: Context manager should handle this use case.
-            # logger_log(advantages, q_values, tr, tr_dict, updated=False)
+
+            if iscontinuing:
+                globally_averaged_returns.append(np.mean(agent.mu))
+                logger_log(advantages, q_values, tr, tr_dict, updated=False)
+            else:
+                rewards.append(np.mean(next_reward))
             agent.update(*tr)
 
-            # logger_log(advantages, q_values, tr, tr_dict, updated=True)
+            if iscontinuing:
+                logger_log(advantages, q_values, tr, tr_dict, updated=True)
 
-            print(f'TRAIN: Episode: {episode}\t'
-                  f'Steps: {env.step_count}\t'
-                  f'Mean reward: {np.mean(rewards)}')
 
-            # print(f'TRAIN: Episode: {episode}\t'
-            #       f'Steps: {env.step_count}\t'
-            #       f'Globally Averaged J: {agent.mu}')
+                print(f'TRAIN: Episode: {episode}\t'
+                      f'Steps: {env.step_count}\t'
+                      f'Globally Averaged J: {agent.mu}')
+            else:
+                print(f'TRAIN: Episode: {episode}\t'
+                      f'Steps: {env.step_count}\t'
+                      f'Mean reward: {np.mean(rewards)}')
+
             state = next_state 
             actions = next_actions
             if done:
                 break
-    agent.save_checkpoints(experiment_dir,str(episodes))
-    globally_averaged_plot(np.cumsum(rewards) / np.arange(1, len(rewards) + 1), experiment_dir)
-    # advantages_plot(advantages, experiment_dir, state_actions)
-    # q_values_plot(q_values, experiment_dir, state_actions)
-    # transition_update_log(tr_dict, experiment_dir)
 
-    # if agent.n_agents == 1:
-    #     display_ac(env, agent)
-    # else:
-    #     display_ac2(env, agent)
-    import ipdb; ipdb.set_trace()
+    agent.save_checkpoints(experiment_dir,str(episodes))
+    if iscontinuing:
+        globally_averaged_plot(globally_averaged_returns, experiment_dir)
+        advantages_plot(advantages, experiment_dir, state_actions)
+        q_values_plot(q_values, experiment_dir, state_actions)
+        transition_update_log(tr_dict, experiment_dir)
+        if agent.n_agents == 1:
+            display_ac(env, agent)
+        else:
+            display_ac2(env, agent)
+    else:
+        globally_averaged_plot(np.cumsum(rewards) / np.arange(1, len(rewards) + 1), experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
 
-    state = env.reset()
+
     validation_rewards = []
+    done = True
     for _ in range(100):
-       if render:
+        if done:
+            state = env.reset()
+
+        if render:
            env.render(mode='human', highlight=True)
            time.sleep(0.1)
 
-       next_state, next_reward, done, _ = env.step(agent.act(state))
-       validation_rewards.append(np.mean(next_reward))
-       state = next_state
+        next_state, next_reward, done, _ = env.step(agent.act(state))
+        validation_rewards.append(np.mean(next_reward))
+        state = next_state
 
-       if done:
-           break
     validation_plot(validation_rewards)
 
 if __name__ == '__main__':
     # Gather parameters.
     flags = parser.parse_args()
 
-    main(flags)
+    # Notify the user what's going on.
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    print_arguments(flags, timestamp)
+
+    validate_arguments(flags)
+    main(flags, timestamp)
