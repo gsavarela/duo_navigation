@@ -15,7 +15,8 @@ from plots import (globally_averaged_plot, advantages_plot,
 from logs import logger, transition_update_log, best_actions_log
 from utils import str2bool
 
-from centralized import CentralizedActorCritic as RLAgent
+# from centralized import CentralizedActorCritic as RLAgent
+from sarsa import SARSATabular as RLAgent
 # from ac import OptimalAgent as RLAgent
 
 parser = argparse.ArgumentParser(description='''
@@ -43,6 +44,9 @@ parser.add_argument('-e', '--episodes', default=1, type=int,
         help='''Regulates the number of re-starts after the
                 GOAL has been reached. Keep in mind that the
                 task is continuing''')
+
+parser.add_argument('-E', '--episodic', default=True, type=str2bool,
+        help='''Controls the nature of the task as continuing or episodic.''')
 
 parser.add_argument('-m', '--max_steps', default=10000, type=int,
         help='''Regulates the maximum number of steps.''')
@@ -87,7 +91,9 @@ def main(flags):
 
     # Actor-Critic parameters. 
     env = gym.make('duo-navigation-v0').unwrapped
-    agent = RLAgent(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
+    # Actor-Critic Agent
+    # agent = RLAgent(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
+    agent = RLAgent(env) 
 
     # Notify the user what's going on.
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -104,10 +110,11 @@ def main(flags):
     
     n_agents = len(env.agents)
     globally_averaged_returns = []
+    rewards = []
     q_values = []
     advantages = []
     tr_dict = defaultdict(list)
-    logger_log = logger(env, agent, state_actions)  
+    # logger_log = logger(env, agent, state_actions)  
     for episode in range(episodes):
         state = env.reset()
         actions = agent.act(state)
@@ -115,37 +122,42 @@ def main(flags):
         while True:
             if render:
                 env.render(mode='human', highlight=True)
-                time.sleep(0.1)
-
+                time.sleep(0.05)
             next_state, next_reward, done, _ = env.step(actions)
-            agent.update_mu(next_reward)
+            # agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
             tr = (state, actions, next_reward, next_state, next_actions)
             # Log.
-            globally_averaged_returns.append(np.mean(agent.mu))
-             # TODO: Context manager should handle this use case.
-            logger_log(advantages, q_values, tr, tr_dict, updated=False)
+            # globally_averaged_returns.append(np.mean(agent.mu))
+            rewards.append(np.mean(next_reward))
+            # TODO: Context manager should handle this use case.
+            # logger_log(advantages, q_values, tr, tr_dict, updated=False)
             agent.update(*tr)
-            logger_log(advantages, q_values, tr, tr_dict, updated=True)
+
+            # logger_log(advantages, q_values, tr, tr_dict, updated=True)
 
             print(f'TRAIN: Episode: {episode}\t'
                   f'Steps: {env.step_count}\t'
-                  f'Globally Averaged J: {agent.mu}')
+                  f'Mean reward: {np.mean(rewards)}')
+
+            # print(f'TRAIN: Episode: {episode}\t'
+            #       f'Steps: {env.step_count}\t'
+            #       f'Globally Averaged J: {agent.mu}')
             state = next_state 
             actions = next_actions
             if done:
                 break
     agent.save_checkpoints(experiment_dir,str(episodes))
+    globally_averaged_plot(np.cumsum(rewards) / np.arange(1, len(rewards) + 1), experiment_dir)
+    # advantages_plot(advantages, experiment_dir, state_actions)
+    # q_values_plot(q_values, experiment_dir, state_actions)
+    # transition_update_log(tr_dict, experiment_dir)
 
-    globally_averaged_plot(globally_averaged_returns, experiment_dir)
-    advantages_plot(advantages, experiment_dir, state_actions)
-    q_values_plot(q_values, experiment_dir, state_actions)
-    transition_update_log(tr_dict, experiment_dir)
-
-    if agent.n_agents == 1:
-        display_ac(env, agent)
-    else:
-        display_ac2(env, agent)
+    # if agent.n_agents == 1:
+    #     display_ac(env, agent)
+    # else:
+    #     display_ac2(env, agent)
+    import ipdb; ipdb.set_trace()
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
 

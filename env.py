@@ -215,11 +215,13 @@ class DuoNavigationEnv(MultiGridEnv):
         random_starts=True,
         max_steps=10000,
         seed=47,
-        view_size=1
+        view_size=1,
+        episodic=False,
     ):
         self.world = World
         self.random_starts = random_starts
         self.random_seed = seed
+        self.episodic = episodic
 
         agents = []
         for i in agents_index:
@@ -369,9 +371,9 @@ class DuoNavigationEnv(MultiGridEnv):
                 self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
-        # Timeout
-        if self.step_count >= self.max_steps:
-            done = True
+        # Timeout or goal
+        done = (self.step_count >= self.max_steps) or \
+                (self.episodic and self.goal_reached)
 
         positions = [ag.pos for ag in self.agents]
         state = self.state.get(positions)
@@ -416,6 +418,7 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
         seed = flags.seed
         agents_index = [i for i in range(1, n_agents + 1)]
         max_steps = flags.max_steps
+        episodic = flags.episodic
         
 
         super(DuoNavigationGameEnv, self).__init__(
@@ -423,7 +426,8 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
             agents_index=agents_index,
             random_starts=random_starts,
             seed=seed,
-            max_steps=flags.max_steps
+            max_steps=max_steps,
+            episodic=episodic,
         )
 
 
