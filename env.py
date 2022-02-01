@@ -6,7 +6,8 @@ from numpy.random import uniform
 
 import gym
 from gym.envs.registration import register
-from gym_multigrid.multigrid import *
+from gym_multigrid.multigrid import Grid, Goal, MultiGridEnv, World
+import gym_multigrid.multigrid as mult
 
 class State:
     '''Fully observable state
@@ -92,6 +93,114 @@ class NavigationActions:
     left = 2
     up = 3
 
+class Agent(mult.Agent):
+    def can_overlap(self):
+        return True
+
+# Extends original grid
+class StackableGrid(Grid):
+    """
+    Represent a grid and operations on it
+    """
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+
+        self.grid = [None] * width * height
+        self.stack = [[] for _ in range(width * height)] 
+
+    def set(self, i, j, v):
+        assert i >= 0 and i < self.width
+        assert j >= 0 and j < self.height
+        # backwards compatibility
+        u = self.grid[j * self.width + i]
+        if v is None and u is not None:
+            self.stack[j * self.width + i].remove(u)
+        self.grid[j * self.width + i] = v
+        if v is not None:
+            self.stack[j * self.width + i].append(v)
+
+    def rm(self, i, j, v, not_exist_ok=True):
+        # Removes v from tile (j, i) leaves everything else
+        # the same.
+        assert i >= 0 and i < self.width
+        assert j >= 0 and j < self.height
+        try:
+            self.stack[j * self.width + i].remove(v)
+        except ValueError as exc:
+            if not not_exist_ok: raise exc
+
+        if self.grid[j * self.width + i] is v: 
+            self.grid[j * self.width + i] = None
+
+    def slice(self, world, topX, topY, width, height):
+        """
+        Get a subset of the grid
+        """
+
+        grid = StackableGrid(width, height)
+
+        for j in range(0, height):
+            for i in range(0, width):
+                x = topX + i
+                y = topY + j
+
+                if x >= 0 and x < self.width and \
+                        y >= 0 and y < self.height:
+                    v = self.get(x, y)
+                else:
+                    v = Wall(world)
+
+                grid.set(i, j, v)
+
+        return grid
+
+    def gen_obs_grid(self):
+        """
+        Generate the sub-grid observed by the agents.
+        This method also outputs a visibility mask telling us which grid
+        cells the agents can actually see.
+        """
+
+        grids = []
+        vis_masks = []
+
+        for a in self.agents:
+
+            topX, topY, botX, botY = a.get_view_exts()
+
+            grid = self.grid.slice(self.objects, topX, topY, a.view_size, a.view_size)
+
+            for i in range(a.dir + 1):
+                grid = grid.rotate_left()
+
+            # Process occluders and visibility
+            # Note that this incurs some performance cost
+            if not self.see_through_walls:
+                vis_mask = grid.process_vis(agent_pos=(a.view_size // 2, a.view_size - 1))
+            else:
+                vis_mask = np.ones(shape=(grid.width, grid.height), dtype=np.bool)
+
+            grids.append(grid)
+            vis_masks.append(vis_mask)
+
+        return grids, vis_masks
+
+    def rotate_left(self):
+        """
+        Rotate the grid to the left (counter-clockwise)
+        """
+
+        grid = StackableGrid(self.height, self.width)
+
+        for i in range(self.width):
+            for j in range(self.height):
+                v = self.get(i, j)
+                grid.set(j, grid.height - 1 - i, v)
+
+        return grid
+
+
 class DuoNavigationEnv(MultiGridEnv):
     """
     Environment in which both agents must reach a goal.
@@ -141,7 +250,7 @@ class DuoNavigationEnv(MultiGridEnv):
                   top=None,
                   size=None,
                   reject_fn=None,
-                  max_tries=math.inf
+                  max_tries=np.inf
                   ):
         """
         Place an object at an empty position in the grid
@@ -177,8 +286,9 @@ class DuoNavigationEnv(MultiGridEnv):
                     self._rand_int(top[1], min(top[1] + size[1], self.grid.height))
                 ))
 
+
                 # Don't place the object on top of another object
-                if self.grid.get(*pos) is not None and not self.grid.get(*pos).can_overlap():
+                if self.grid.get(*pos) is not None:
                     continue
 
                 # Check if there is a filtering criterion
@@ -195,8 +305,9 @@ class DuoNavigationEnv(MultiGridEnv):
 
         return pos
 
+
     def _gen_grid(self, width, height):
-        self.grid = Grid(width, height)
+        self.grid = StackableGrid(width, height)
 
         # Generate the surrounding walls
         self.grid.horz_wall(self.world, 0, 0)
@@ -216,7 +327,12 @@ class DuoNavigationEnv(MultiGridEnv):
         Compute the reward to be given upon success
         """
         for j, ag in enumerate(self.agents):
-            rewards[j] = goal_reward if all(ag.pos == self.goal_pos) else 1e-3
+            rewards[j] = goal_reward if self.goal_reached else -1e-3
+
+    @property
+    def goal_reached(self):
+        # evaluates if all agents have reached the goal.
+        return all(tuple(ag.pos.tolist()) == self.goal_pos for ag in self.agents)
 
     def step(self, actions):
         self.step_count += 1
@@ -250,7 +366,7 @@ class DuoNavigationEnv(MultiGridEnv):
 
             if fwd_cell is None or fwd_cell.can_overlap():
                 self.grid.set(*fwd_pos, ag)
-                self.grid.set(*ag.pos, None)
+                self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
         # Timeout
