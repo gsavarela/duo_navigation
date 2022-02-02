@@ -17,6 +17,14 @@ FIGURE_X = 6.0
 FIGURE_Y = 4.0
 CENTRALIZED_AGENT_COLOR = (0.2, 1.0, 0.2)
 
+def snapshot_plot(snapshot_log, img_path):
+    cumulative_rewards_plot(snapshot_log['reward'], img_path)
+
+    # For continous tasks
+    if 'mu' in snapshot_log:
+        globally_averaged_plot(snapshot_log['mu'], img_path)
+
+
 def globally_averaged_plot(mus, img_path):
     
     globally_averaged_return = np.array(mus)
@@ -38,6 +46,25 @@ def globally_averaged_plot(mus, img_path):
     file_name = img_path / 'globally_averaged_return.pdf'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     file_name = img_path / 'globally_averaged_return.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+def cumulative_rewards_plot(rewards, img_path):
+    
+    fig = plt.figure()
+    fig.set_size_inches(FIGURE_X, FIGURE_Y)
+
+    Y = np.cumsum(rewards) / np.arange(1, len(rewards) + 1)
+    X = np.linspace(1, Y.shape[0], Y.shape[0])
+
+    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label='Centralized')
+    plt.xlabel('Time')
+    plt.ylabel('Cumulative Averaged Reward')
+    plt.legend(loc=4)
+
+    file_name = img_path / 'cumulative_averaged_reward.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = img_path / 'cumulative_averaged_reward.png'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 
@@ -96,99 +123,109 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
             plt.close()
 
 
-def display_ac2(env, agent):
+# TODO: port display_ac
+def display_policy(env, agent):
+    if hasattr(agent, 'Q'):
+        display_Q(env, agent)
+
+    if hasattr(agent, 'pi'):
+        display_ac(env, agent)
+        
+
+    
+    
+    
+def display_Q(env, agent):
     goal_pos = env.goal_pos
-    rows, cols = [*range(1, env.height - 1)], [*range(1, env.width - 1)]
-    def phi(x , y):
-        return env.features.get_phi(x, y)
+    def bact(x): return best_actions(x, np.array(list(goal_pos)))
     print(env)
-    agents_positions = [np.array([c, r])
-            for r in rows for c in cols if [c, r] != list(goal_pos)]
 
     margin = '#' * 45
     print(f'{margin} GOAL {margin}')
-    print(f'Goal {goal_pos}')
-    print(f'{margin} ACTOR {margin}')
-    for agent_pos_2 in agents_positions:
-        for agent_pos_1 in agents_positions:
-            if not np.array_equal(agent_pos_1, agent_pos_2):
-                # Position to state.
-                positions = [agent_pos_1, agent_pos_2]
-                state = env.state.get(positions)
-                varphi = env.features.get_varphi(state)
+    print(f'GOAL: {goal_pos}')
+    print(f'{margin} SARSA {margin}')
+    action_set = env.action_set
+    states_positions_gen = env.next_states()
+    while True:
+        try:
+            state, pos = next(states_positions_gen)
+            try:
+                # Q --> is a function
+                q_values = [agent.Q(state, act) for act in action_set]
+            except TypeError:
+                # Q --> ndarray
+                q_values = [agent.Q[state, act[0]] for act in action_set]
 
-                # Get policies.
-                pi_0, pi_1 = agent.pi(varphi, 0), agent.pi(varphi, 1)
-                act_0, act_1 = np.argmax(pi_0), np.argmax(pi_1)
-                ba_0, ba_1 = best_actions(agent_pos_1, goal_pos), best_actions(agent_pos_2, goal_pos)
-                msg = (f'\t{state}'
-                       f'\t{pos2str(agent_pos_1)}, {pos2str(agent_pos_2)}'
-                       f'\t{pi2str(pi_0)}, {pi2str(pi_1)}'
-                       f'\t{act2str(act_0)}, {act2str(act_1)}'
-                       f'\t{acts2str(ba_0)}, {acts2str(ba_1)}')
-                print(msg)
+            actions_log = acts2str(action_set[np.argmax(q_values)])
 
-    print(f'{margin} CRITIC {margin}')
-    actions = [[a] for a in range(env.team_actions.n_team_actions)]
-    # TODO: Handles centralized critic only. Where there is only one critic.
-    # For individual or consensus agents there are n_agent critics.
-    for agent_pos_2 in agents_positions:
-        for agent_pos_1 in agents_positions:
-            if not np.array_equal(agent_pos_1, agent_pos_2):
-                # Position to state.
-                positions = [agent_pos_1, agent_pos_2]
-                state = env.state.get(positions)
-                qs = []
-                for act in actions:
-                    qs.append(phi(state, act) @ agent.omega)
-                act_1 = (np.argmax(qs) // 4)
-                act_0 = (np.argmax(qs) % 4)
-                ba_0, ba_1 = best_actions(agent_pos_1, goal_pos), best_actions(agent_pos_2, goal_pos)
-                msg = (f'\t{state}'
-                       f'\t{pos2str(agent_pos_1)}, {pos2str(agent_pos_2)}'
-                       f'\t{q2str(qs)}'
-                       f'\t{act2str(act_0)}, {act2str(act_1)}'
-                       f'\t{acts2str(ba_0)}, {acts2str(ba_1)}')
-                print(msg)
+            best_log = ', '.join([acts2str(bact(p)) for p in pos])
+            pos_log = ', '.join([pos2str(p) for p in pos])
+            msg = (f'\t{state}'
+                   f'\t{pos_log}'
+                   f'\t{q2str(q_values)}'
+                   f'\t{actions_log}'
+                   f'\t{best_log}')
+            print(msg)
+        except StopIteration:
+            break
 
 def display_ac(env, agent):
 
-    goal_pos = env.goal_pos
+    # goal_pos = env.goal_pos
     def phi(x , y):
         return env.features.get_phi(x, y)
-    print(env)
-    margin = '#' * 30
+    def varphi(x):
+        return env.features.get_varphi(state)
+    # print(env)
 
+    goal_pos = env.goal_pos
+    def bact(x): return best_actions(x, np.array(list(goal_pos)))
+    print(env)
+
+
+    action_set = env.action_set
+    states_positions_gen = env.next_states()
+    margin = '#' * 30
+    print(f'{margin} GOAL {margin}')
+    print(f'GOAL: {goal_pos}')
     print(f'{margin} ACTOR {margin}')
-    for k in range(agent.n_agents):
-        for i in range(1, env.width - 1):
-            for j in range(1, env.height - 1):
-                agent_pos = np.array([i, j])
-                # position to state
-                state = env.state.lin(agent_pos)
-                varphi = env.features.get_varphi(state)
-                pi_k = agent.pi(varphi, k)
-                act = np.argmax(pi_k)
-                msg = (f'\t{state}\t{pos2str(agent_pos)}'
-                       f'\t{pi2str(pi_k)}\t{act2str(act)}'
-                       f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
-                print(msg)
+    while True:
+        try:
+            state, pos = next(states_positions_gen)
+            pi_log = ','.join([pi2str(agent.pi(varphi(state), k)) for k in range(agent.n_agents)])
+
+            max_actions = [np.argmax(agent.pi(varphi(state), k)) for k in range(agent.n_agents)]
+            actions_log = acts2str(max_actions)
+            best_log = ', '.join([acts2str(bact(p)) for p in pos])
+            pos_log = ', '.join([pos2str(p) for p in pos])
+            msg = (f'\t{state}\t{pos_log}'
+                   f'\t{pi_log}\t{actions_log}'
+                   f'\t{best_log}')
+            print(msg)
+        except StopIteration:
+            break
 
     print(f'{margin} CRITIC {margin}')
-    actions = [[a] for a in range(agent.n_actions)]
-    for k in range(agent.n_agents):
-        for i in range(1, env.width - 1):
-            for j in range(1, env.height - 1):
-                agent_pos = np.array([i, j])
-                qs = []
-                # position to state
-                state = env.state.lin(agent_pos)
-                for act in actions:
-                    qs.append(phi(state, act) @ agent.omega)
-                msg = (f'\t{state}\t{pos2str(agent_pos)}'
-                       f'\t{q2str(qs)}\t{act2str(np.argmax(qs))}'
-                       f'\t{acts2str(best_actions(agent_pos, goal_pos))}')
-                print(msg)
+
+    states_positions_gen = env.next_states()
+    while True:
+        try:
+            state, pos = next(states_positions_gen)
+            # Q --> is a function
+            q_values = [phi(state, act) @ agent.omega for act in action_set]
+
+            actions_log = acts2str(action_set[np.argmax(q_values)])
+
+            best_log = ', '.join([acts2str(bact(p)) for p in pos])
+            pos_log = ', '.join([pos2str(p) for p in pos])
+            msg = (f'\t{state}'
+                   f'\t{pos_log}'
+                   f'\t{q2str(q_values)}'
+                   f'\t{actions_log}'
+                   f'\t{best_log}')
+            print(msg)
+        except StopIteration:
+            break
 
 def validation_plot(rewards):
 

@@ -19,7 +19,7 @@ class SARSATabular(object):
         -----------
         * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 133).
     ''' 
-    def __init__(self, env, alpha=0.2, gamma=0.98, max_episodes=1000):
+    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=1000):
 
         # Constants
         self.n_agents = len(env.agents)
@@ -34,12 +34,16 @@ class SARSATabular(object):
         self.alpha = alpha
         self.gamma = 0.98
         self.epsilon = 1
-        self.epsilon_step = (1 - 1e-2) / 1000
+        self.epsilon_step = (1 - 1e-2) / (episodes * env.max_steps)
         self.reset()
 
+    @property
+    def V(self):
+        return np.max(self.Q, axis=1)
+        
     def reset(self, seed=0):
         np.random.seed(seed)
-        if self.step_count > 0: self.epsilon = max(self.epsilon - self.epsilon_step, 1e-2)
+
 
     @int2act
     def act(self, state):
@@ -51,9 +55,10 @@ class SARSATabular(object):
 
     @act2int
     def update(self, state, actions, next_rewards, next_state, next_actions):
-        self.Q[state, actions] += self.alpha * (next_rewards + self.gamma * \
+        self.Q[state, actions] += self.alpha * (np.mean(next_rewards) + self.gamma * \
                 self.Q[next_state, next_actions] - self.Q[state, actions])
-        self.epsilon = max(1e-2, self.epsilon - 1e-4)
+
+        self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         self.step_count += 1
         
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
@@ -82,7 +87,7 @@ class SARSASemiGradient(object):
         -----------
         * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 251).
     ''' 
-    def __init__(self, env, alpha=0.2, beta=0.8, max_episodes=1000):
+    def __init__(self, env, alpha=0.2, beta=0.8, episodes=20):
 
         # The environment
         self.env = env
@@ -103,8 +108,15 @@ class SARSASemiGradient(object):
         self.alpha = alpha
         self.beta = beta
         self.epsilon = 1
-        self.epsilon_step = (1 - 1e-2) / 1000
+        self.epsilon_step = (1 - 1e-2) / (episodes * env.max_steps)
         self.reset()
+
+    @property
+    def V(self):
+        q_values = np.array([
+            np.argmax([self.Q(state, act) for act in self.env.action_set]) for state in range(self.n_states)
+        ])
+        return q_values
 
     def reset(self, seed=0):
         np.random.seed(seed)
@@ -123,13 +135,12 @@ class SARSASemiGradient(object):
                 self.Q(next_state, next_actions) - self.Q(state, actions)
         self.mu += self.beta * delta
         self.omega += self.alpha * delta * self.phi(state, actions)
-        self.epsilon = max(1e-2, self.epsilon - 1e-4)
+        self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         self.step_count += 1
         
     def Q(self, state, actions):
-        res = self.phi(state, actions) @ self.omega
-        return res
-
+        return self.phi(state, actions) @ self.omega
+        
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
         file_path = Path(chkpt_dir_path) / chkpt_num / f'{class_name}.chkpt'  

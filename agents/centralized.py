@@ -4,7 +4,7 @@ import dill
 import numpy as np
 from numpy.random import choice
 
-from utils import best_actions
+from utils import best_actions, i2q
 
 def softmax(x):
     exp_x = np.exp(x)
@@ -15,6 +15,8 @@ class CentralizedActorCritic:
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
         # Inputs.
         self.env = env
+        self.phi = env.features.get_phi
+        self.varphi = env.features.get_varphi
 
         # Constants.
         self.n_agents = len(env.agents)
@@ -35,36 +37,44 @@ class CentralizedActorCritic:
         self.decay_count = 0
         self.reset()
 
+    @property
+    def V(self):
+        values = []
+        for state in range(self.env.state.n_states):
+            varphi = self.varphi(state)
+            val = 0
+            for actions in self.env.action_set:
+                phi = self.phi(state, actions)
+                prob = np.prod([self.pi(varphi, i)[act] for i, act in enumerate(actions)])
+                val += prob * (phi @ self.omega)
+            values.append(val)
+        return np.array(values)
+        
     def reset(self, seed=0):
         np.random.seed(seed)
 
     def act(self, state):
-        varphi = self.env.features.get_varphi(state)
-        probs = [self.pi(varphi, i) for i in range(self.n_agents)]
+        probs = [self.pi(self.varphi(state), i) for i in range(self.n_agents)]
         return [choice(self.n_actions, p=prob) for prob in probs]
-
-    def update_mu(self, rewards):
-        self.next_mu = (1 - self.alpha) * self.mu + self.alpha * np.mean(rewards)
-        return self.next_mu
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
         # Gather features from environment.
-        phi = self.env.features.get_phi(state, actions)
-        next_phi = self.env.features.get_phi(next_state, next_actions)
-        varphi = self.env.features.get_varphi(state)
+        # phi = self.env.features.get_phi(state, actions)
+        # next_phi = self.env.features.get_phi(next_state, next_actions)
+        # varphi = self.env.features.get_varphi(state)
 
         # Time-difference error.
         delta = np.mean(next_rewards) - self.mu + \
-                (next_phi - phi) @ self.omega 
+                (self.phi(next_state, next_actions) - self.phi(state, actions)) @ self.omega 
 
         # Critic step.
-        self.omega += self.alpha * delta * phi
+        self.omega += self.alpha * delta * self.phi(state, actions)
         for i in range(self.n_agents):
-            self.theta[i, :] += self.beta * delta * self.psi(actions, varphi, i)
+            self.theta[i, :] += self.beta * delta * self.psi(actions, self.varphi(state), i)
 
         # Update loop control.
+        self.mu = (1 - self.alpha) * self.mu + self.alpha * np.mean(next_rewards)
         self.step_count += 1
-        self.mu = self.next_mu
         if self.decay and np.abs(delta) > 1e-6:
             self.decay_count += 1
             self.alpha = np.power(self.decay_count + 1, -0.85)

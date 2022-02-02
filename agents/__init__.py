@@ -8,7 +8,7 @@ def get_agent(env, flags):
     if flags.agent_type == 'CentralizedActorCritic':
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
     if flags.agent_type == 'SARSATabular':
-        return agent_cls(env, alpha=flags.alpha, max_episodes=flags.episodes) 
+        return agent_cls(env, alpha=flags.alpha, episodes=flags.episodes) 
     if flags.agent_type == 'SARSASemiGradient':
-        return agent_cls(env, alpha=flags.alpha, beta=flags.beta)
+        return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes)
 __all__ = ['CentralizedActorCritic', 'SARSATabular', 'SARSASemiGradient']

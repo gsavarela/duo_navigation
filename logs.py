@@ -7,6 +7,32 @@ from functionals import calculate_advantage as advantage_functional
 from functionals import calculate_q_function as q_functional
 from functionals import calculate_transitions as transitions_functional
 
+def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
+
+    log_dict['reward'].append(np.mean(tr[2]))
+    log_dict['step_count'].append(agent.step_count)
+
+    step_log = (f'TRAIN: Episode: {episode}\t'
+                f'Steps: {env.step_count}\t'
+                f'Average Reward: {np.mean(log_dict["reward"]):0.4f}\t')
+    
+    if hasattr(agent, 'mu'):
+        log_dict['mu'].append(np.mean(agent.mu))
+        step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 
+
+    if debug:
+        actions = env.action_set
+        states_positions_gen = env.next_states()
+        V = agent.V
+        try:
+            while True:
+                state, _ = next(states_positions_gen)
+                log_dict[f'V({state})'].append(V[state])
+        except StopIteration:
+            pass
+
+    return step_log
+
 def pretty_print_df(df):
     # Pandas display options.
     with pd.option_context('display.max_rows', None,

@@ -1,5 +1,8 @@
 '''DuoNavigationGame: Team navigation game for Reinforcement Learning.'''
 import time
+from itertools import product
+from operator import itemgetter
+# from functools import cached_property
 
 import numpy as np
 from numpy.random import uniform
@@ -462,15 +465,35 @@ class DuoNavigationEnv(MultiGridEnv):
                         str += 'D' + c.color[0].upper()
                     continue
 
-                try:
-                    str += OBJECT_TO_STR[c.type] + c.color[0].upper()
-                except Exception:
-                    import ipdb; ipdb.set_trace()
+                str += OBJECT_TO_STR[c.type] + c.color[0].upper()
 
             if j < self.grid.height - 1:
                 str += '\n'
 
         return str
+
+    # Provides a generator to pagine every state
+    def next_states(self):
+        goal_pos = self.goal_pos
+        rows, cols = [*range(1, self.height - 1)], [*range(1, self.width - 1)]
+        agents_positions = [np.array([c, r]) for r in rows for c in cols]
+
+        # Neat way to combine by number of agents.
+        agents_positions = product(agents_positions, repeat=len(self.agents))
+
+        # Map to positions to states.
+        agents_positions = [(self.state.get(pos), pos) for pos in agents_positions]
+
+        # Order by states asc.
+        agents_positions = sorted(agents_positions, key=itemgetter(0))
+
+        for x, p in agents_positions: 
+            yield x, p
+        return 0
+
+    @property
+    def action_set(self):
+        return [*product(np.arange(4).tolist(), repeat=len(self.agents))]
 
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
