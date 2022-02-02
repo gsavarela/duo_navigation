@@ -46,7 +46,7 @@ def i2q(ind, n_agents):
 
 # converts a quaternary list to an array.
 def q2i(acts):
-    return [act * (4 ** i) for i, act in enumerate(acts)]
+    return int(sum([act * (4 ** i) for i, act in enumerate(acts)]))
 
 
 # The best action is the one that brings the agent closest
