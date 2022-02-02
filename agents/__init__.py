@@ -1,4 +1,6 @@
-from agents.sarsa import SARSATabular
+# FIXME: I wonder if we could use GYM register here.
+# Common interface for different variations of a model.
+from agents.sarsa import SARSATabular, SARSASemiGradient
 from agents.centralized import CentralizedActorCritic
 
 def get_agent(env, flags):
@@ -7,5 +9,6 @@ def get_agent(env, flags):
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
     if flags.agent_type == 'SARSATabular':
         return agent_cls(env, alpha=flags.alpha, max_episodes=flags.episodes) 
-
-__all__ = ['CentralizedActorCritic', 'SARSATabular']
+    if flags.agent_type == 'SARSASemiGradient':
+        return agent_cls(env, alpha=flags.alpha, beta=flags.beta)
+__all__ = ['CentralizedActorCritic', 'SARSATabular', 'SARSASemiGradient']

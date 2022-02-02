@@ -80,7 +80,7 @@ def print_arguments(opts, timestamp):
 
 def validate_arguments(opts):
     assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
-                (opts.agent_type == 'CentralizedActorCritic' and not opts.episodic)
+                (opts.agent_type in ('CentralizedActorCritic', 'SARSASemiGradient') and not opts.episodic)
 def main(flags, timestamp):
 
     # Instanciate environment and agent
@@ -111,14 +111,14 @@ def main(flags, timestamp):
 
     # TODO: Log as a decorator for functions.
     # Takes snapshots of objects' internal states.
-    if iscontinuing:
-        q_values = []
-        advantages = []
-        tr_dict = defaultdict(list)
-        globally_averaged_returns = []
-        logger_log = logger(env, agent, state_actions)  
-    else:
-        rewards = []
+    # if iscontinuing:
+    #     q_values = []
+    #     advantages = []
+    #     tr_dict = defaultdict(list)
+    #     globally_averaged_returns = []
+    #     logger_log = logger(env, agent, state_actions)  
+    # else:
+    rewards = []
 
     for episode in range(episodes):
         state = env.reset()
@@ -130,28 +130,28 @@ def main(flags, timestamp):
                 time.sleep(0.1)
             next_state, next_reward, done, _ = env.step(actions)
 
-            if iscontinuing: agent.update_mu(next_reward)
+            # if iscontinuing: agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
             tr = (state, actions, next_reward, next_state, next_actions)
 
-            if iscontinuing:
-                globally_averaged_returns.append(np.mean(agent.mu))
-                logger_log(advantages, q_values, tr, tr_dict, updated=False)
-            else:
-                rewards.append(np.mean(next_reward))
+            # if iscontinuing:
+            #     globally_averaged_returns.append(np.mean(agent.mu))
+            #     logger_log(advantages, q_values, tr, tr_dict, updated=False)
+            # else:
+            rewards.append(np.mean(next_reward))
             agent.update(*tr)
 
-            if iscontinuing:
-                logger_log(advantages, q_values, tr, tr_dict, updated=True)
+            # if iscontinuing:
+            #     logger_log(advantages, q_values, tr, tr_dict, updated=True)
 
 
-                print(f'TRAIN: Episode: {episode}\t'
-                      f'Steps: {env.step_count}\t'
-                      f'Globally Averaged J: {agent.mu}')
-            else:
-                print(f'TRAIN: Episode: {episode}\t'
-                      f'Steps: {env.step_count}\t'
-                      f'Mean reward: {np.mean(rewards)}')
+            #     print(f'TRAIN: Episode: {episode}\t'
+            #           f'Steps: {env.step_count}\t'
+            #           f'Globally Averaged J: {agent.mu}')
+            # else:
+            print(f'TRAIN: Episode: {episode}\t'
+                  f'Steps: {env.step_count}\t'
+                  f'Mean reward: {np.mean(rewards):0.4f}')
 
             state = next_state 
             actions = next_actions
@@ -159,17 +159,17 @@ def main(flags, timestamp):
                 break
 
     agent.save_checkpoints(experiment_dir,str(episodes))
-    if iscontinuing:
-        globally_averaged_plot(globally_averaged_returns, experiment_dir)
-        advantages_plot(advantages, experiment_dir, state_actions)
-        q_values_plot(q_values, experiment_dir, state_actions)
-        transition_update_log(tr_dict, experiment_dir)
-        if agent.n_agents == 1:
-            display_ac(env, agent)
-        else:
-            display_ac2(env, agent)
-    else:
-        globally_averaged_plot(np.cumsum(rewards) / np.arange(1, len(rewards) + 1), experiment_dir)
+    # if iscontinuing:
+    #     globally_averaged_plot(globally_averaged_returns, experiment_dir)
+    #     advantages_plot(advantages, experiment_dir, state_actions)
+    #     q_values_plot(q_values, experiment_dir, state_actions)
+    #     transition_update_log(tr_dict, experiment_dir)
+    #     if agent.n_agents == 1:
+    #         display_ac(env, agent)
+    #     else:
+    #         display_ac2(env, agent)
+    # else:
+    globally_averaged_plot(np.cumsum(rewards) / np.arange(1, len(rewards) + 1), experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
 
