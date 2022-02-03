@@ -125,16 +125,12 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
 
 # TODO: port display_ac
 def display_policy(env, agent):
-    if hasattr(agent, 'Q'):
+    if hasattr(agent, 'PI'):
+        display_ac(env, agent)
+    else:
         display_Q(env, agent)
 
-    if hasattr(agent, 'pi'):
-        display_ac(env, agent)
         
-
-    
-    
-    
 def display_Q(env, agent):
     goal_pos = env.goal_pos
     def bact(x): return best_actions(x, np.array(list(goal_pos)))
@@ -144,25 +140,30 @@ def display_Q(env, agent):
     print(f'{margin} GOAL {margin}')
     print(f'GOAL: {goal_pos}')
     print(f'{margin} SARSA {margin}')
+    import timeit
+
+    print(timeit.timeit(stmt='agent.Q', number=1000, globals=locals()))
+    # print(timeit.timeit(stmt='agent.new_Q', number=1000, globals=locals()))
+
+    # np.testing.assert_almost_equal(agent.Q, agent.new_Q)
+
+    print(timeit.timeit(stmt='agent.V', number=1000, globals=locals()))
+    # print(timeit.timeit(stmt='agent.new_V', number=1000, globals=locals()))
+    # np.testing.assert_almost_equal(agent.V, agent.new_V)
+
     action_set = env.action_set
     states_positions_gen = env.next_states()
     while True:
         try:
             state, pos = next(states_positions_gen)
-            try:
-                # Q --> is a function
-                q_values = [agent.Q(state, act) for act in action_set]
-            except TypeError:
-                # Q --> ndarray
-                q_values = [agent.Q[state, act[0]] for act in action_set]
-
-            actions_log = acts2str(action_set[np.argmax(q_values)])
+            actions_log = acts2str(action_set[np.argmax(agent.Q[state, :])])
 
             best_log = ', '.join([acts2str(bact(p)) for p in pos])
             pos_log = ', '.join([pos2str(p) for p in pos])
             msg = (f'\t{state}'
+                   f'\t{agent.V[state]:0.3f}'
                    f'\t{pos_log}'
-                   f'\t{q2str(q_values)}'
+                   f'\t{q2str(agent.Q[state, :])}'
                    f'\t{actions_log}'
                    f'\t{best_log}')
             print(msg)
@@ -170,14 +171,6 @@ def display_Q(env, agent):
             break
 
 def display_ac(env, agent):
-
-    # goal_pos = env.goal_pos
-    def phi(x , y):
-        return env.features.get_phi(x, y)
-    def varphi(x):
-        return env.features.get_varphi(state)
-    # print(env)
-
     goal_pos = env.goal_pos
     def bact(x): return best_actions(x, np.array(list(goal_pos)))
     print(env)
@@ -192,13 +185,13 @@ def display_ac(env, agent):
     while True:
         try:
             state, pos = next(states_positions_gen)
-            pi_log = ','.join([pi2str(agent.pi(varphi(state), k)) for k in range(agent.n_agents)])
-
-            max_actions = [np.argmax(agent.pi(varphi(state), k)) for k in range(agent.n_agents)]
-            actions_log = acts2str(max_actions)
+            pi_log = pi2str(agent.PI(state))
+            max_actions = np.argmax(agent.PI(state))
+            actions_log = acts2str(action_set[max_actions])
             best_log = ', '.join([acts2str(bact(p)) for p in pos])
             pos_log = ', '.join([pos2str(p) for p in pos])
             msg = (f'\t{state}\t{pos_log}'
+                   f'\t{agent.V[state]:0.2f}'
                    f'\t{pi_log}\t{actions_log}'
                    f'\t{best_log}')
             print(msg)
@@ -206,21 +199,20 @@ def display_ac(env, agent):
             break
 
     print(f'{margin} CRITIC {margin}')
-
     states_positions_gen = env.next_states()
     while True:
         try:
             state, pos = next(states_positions_gen)
-            # Q --> is a function
-            q_values = [phi(state, act) @ agent.omega for act in action_set]
 
-            actions_log = acts2str(action_set[np.argmax(q_values)])
+            max_action = np.argmax(agent.Q[state, :])
+            actions_log = acts2str(action_set[max_action])
 
             best_log = ', '.join([acts2str(bact(p)) for p in pos])
             pos_log = ', '.join([pos2str(p) for p in pos])
             msg = (f'\t{state}'
+                   f'\t{agent.V[state]:0.2f}'
                    f'\t{pos_log}'
-                   f'\t{q2str(q_values)}'
+                   f'\t{q2str(agent.Q[state, :])}'
                    f'\t{actions_log}'
                    f'\t{best_log}')
             print(msg)

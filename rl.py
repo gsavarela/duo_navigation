@@ -80,7 +80,7 @@ def print_arguments(opts, timestamp):
 
 def validate_arguments(opts):
     assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
-                (opts.agent_type in ('CentralizedActorCritic', 'SARSASemiGradient') and not opts.episodic)
+                (opts.agent_type in ('CentralizedActorCritic', 'FullyCentralizedActorCritic', 'SARSASemiGradient') and not opts.episodic)
 def main(flags, timestamp):
 
     # Instanciate environment and agent

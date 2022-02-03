@@ -4,8 +4,10 @@
     -----------
     * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 133).
 ''' 
-import dill
 from pathlib import Path
+from functools import lru_cache
+
+import dill
 import numpy as np
 from numpy.random import rand, choice
 
@@ -90,8 +92,11 @@ class SARSASemiGradient(object):
     def __init__(self, env, alpha=0.2, beta=0.8, episodes=20):
 
         # The environment
-        self.env = env
+        self.action_set = env.action_set
         self.phi = env.features.get_phi
+        def PHI(x): # use this for acting.
+            return np.array([self.phi(x, u) for u in self.action_set])
+        self.PHI = PHI 
 
         # Constants
         self.n_phi = env.features.n_phi[-1]
@@ -113,10 +118,22 @@ class SARSASemiGradient(object):
 
     @property
     def V(self):
-        q_values = np.array([
-            np.argmax([self.Q(state, act) for act in self.env.action_set]) for state in range(self.n_states)
-        ])
-        return q_values
+        return self._cache_V(self.step_count)
+    
+    @lru_cache(maxsize=1)
+    def _cache_V(self, step_count):
+        return np.max(self.Q, axis=1)
+
+    @property
+    def Q(self):
+        return self._cache_Q(self.step_count)
+    
+    @lru_cache(maxsize=1)
+    def _cache_Q(self, step_count):
+        q_values = []
+        for state in range(self.n_states):
+            q_values.append((self.PHI(state) @ self.omega).tolist())
+        return np.array(q_values)
 
     def reset(self, seed=0):
         np.random.seed(seed)
@@ -126,20 +143,17 @@ class SARSASemiGradient(object):
         if rand() < self.epsilon:
             ind = choice(self.n_joint_actions)
         else:
-            q_values = [self.Q(state, i2q(a, self.n_agents)) for a in range(self.n_joint_actions)]
+            q_values = [self.phi(state, i2q(a, self.n_agents)) @ self.omega for a in range(self.n_joint_actions)]
             ind = np.argmax(q_values)
         return ind
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
         delta = np.mean(next_rewards) - self.mu  + \
-                self.Q(next_state, next_actions) - self.Q(state, actions)
+                (self.phi(next_state, next_actions) -  self.phi(state, actions)) @ self.omega
         self.mu += self.beta * delta
         self.omega += self.alpha * delta * self.phi(state, actions)
         self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         self.step_count += 1
-        
-    def Q(self, state, actions):
-        return self.phi(state, actions) @ self.omega
         
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
