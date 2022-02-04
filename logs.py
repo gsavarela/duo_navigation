@@ -3,9 +3,6 @@ import re
 import numpy as np
 import pandas as pd
 from utils import act2str, acts2str, pi2str, best_actions
-from functionals import calculate_advantage as advantage_functional
-from functionals import calculate_q_function as q_functional
-from functionals import calculate_transitions as transitions_functional
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
