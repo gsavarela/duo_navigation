@@ -51,15 +51,32 @@ def q2i(acts):
 
 # The best action is the one that brings the agent closest
 # to the goal.
-def best_actions(agent_pos, goal_pos):
+def best_actions(agent_pos, goal_pos, width=None, height=None):
+
+    if not ((width is None) or (height is None)):
+        # Handles grid boundaries
+        def next_position(pos, move):
+            npos = pos + move
+            if np.min(npos) < 1 or npos[0] > width or npos[1] > height:
+                return pos  # don't make the move.
+            return npos
+    else:
+        # Handles only lower grid boundaries 
+        def next_position(pos, move):
+            npos = pos + move
+            return pos if np.min(npos) < 1 else npos
+
 
     # Manhattan distance
     def dist(x):
         return np.abs(goal_pos - x).sum()
-    res = []
+
     prev_dist = dist(agent_pos)
+    res = []
     for i, move in enumerate(MOVES):
-        next_dist  = dist(agent_pos + move)
-        if next_dist < prev_dist: res.append(i) 
+        next_dist  = dist(next_position(agent_pos, move))
+        if next_dist < prev_dist or \
+            (next_dist == prev_dist and prev_dist == 0):
+            res.append(i) 
     return res
 

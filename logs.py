@@ -9,8 +9,12 @@ from functionals import calculate_transitions as transitions_functional
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
+    actions = env.action_set
+    log_dict['state'].append(int(tr[0]))
+    log_dict['action'].append(actions.index(tuple(tr[1])))
     log_dict['reward'].append(np.mean(tr[2]))
     log_dict['step_count'].append(agent.step_count)
+    log_dict['episode'].append(episode)
 
     step_log = (f'TRAIN: Episode: {episode}\t'
                 f'Steps: {env.step_count}\t'
@@ -21,13 +25,17 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
         step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 
 
     if debug:
-        actions = env.action_set
+        n_actions = len(actions)
         states_positions_gen = env.next_states()
-        V = agent.V
         try:
             while True:
                 state, _ = next(states_positions_gen)
-                log_dict[f'V({state})'].append(V[state])
+                log_dict[f'V({state})'].append(agent.V[state])
+                PI = agent.PI(state)
+                log_dict[f'Q({state})'].append(agent.Q[state, :].tolist())
+                log_dict[f'A({state})'].append((agent.Q[state, :] - agent.V[state]).tolist())
+                log_dict[f'PI({state})'].append(agent.PI(state))
+
         except StopIteration:
             pass
 

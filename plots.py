@@ -1,3 +1,4 @@
+import json
 from operator import itemgetter
 from pathlib import Path
 
@@ -24,6 +25,10 @@ def snapshot_plot(snapshot_log, img_path):
     if 'mu' in snapshot_log:
         globally_averaged_plot(snapshot_log['mu'], img_path)
 
+    
+    snapshot_path = img_path / 'snapshot.json'
+    with snapshot_path.open('w') as f:
+        json.dump(snapshot_log, f)
 
 def globally_averaged_plot(mus, img_path):
     

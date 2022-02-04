@@ -36,16 +36,17 @@ class SARSATabular(object):
         self.alpha = alpha
         self.gamma = 0.98
         self.epsilon = 1
-        self.epsilon_step = (1 - 1e-2) / (episodes * env.max_steps)
-        self.reset()
+        self.epsilon_step = (1 - 1e-2) / episodes
+        self.reset(first=True)
 
     @property
     def V(self):
         return np.max(self.Q, axis=1)
         
-    def reset(self, seed=0):
+    def reset(self, seed=0, first=False):
         np.random.seed(seed)
-
+        if not first: self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
+        
 
     @int2act
     def act(self, state):
@@ -60,7 +61,6 @@ class SARSATabular(object):
         self.Q[state, actions] += self.alpha * (np.mean(next_rewards) + self.gamma * \
                 self.Q[next_state, next_actions] - self.Q[state, actions])
 
-        self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         self.step_count += 1
         
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):

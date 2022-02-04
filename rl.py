@@ -18,8 +18,6 @@ from utils import str2bool
 
 from agents import get_agent
 from agents import __all__ as AGENT_TYPES
-# from agents import SARSATabular as RLAgent
-# from ac import OptimalAgent as RLAgent
 
 parser = argparse.ArgumentParser(description='''
     This script trains an Actor-Critic DuoNavigation Gym Experiment.
@@ -80,7 +78,7 @@ def print_arguments(opts, timestamp):
 
 def validate_arguments(opts):
     assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
-                (opts.agent_type in ('CentralizedActorCritic', 'FullyCentralizedActorCritic', 'SARSASemiGradient') and not opts.episodic)
+                (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 def main(flags, timestamp):
 
     # Instanciate environment and agent
@@ -123,6 +121,7 @@ def main(flags, timestamp):
 
     for episode in range(episodes):
         state = env.reset()
+        agent.reset()
         actions = agent.act(state)
 
         while True:
@@ -133,7 +132,7 @@ def main(flags, timestamp):
 
             # if iscontinuing: agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
-            tr = (state, actions, np.mean(next_reward), next_state, next_actions)
+            tr = (state, actions, next_reward, next_state, next_actions)
 
             # if iscontinuing:
             # globally_averaged_returns.append(np.mean(agent.mu))
@@ -141,6 +140,7 @@ def main(flags, timestamp):
             # else:
             # rewards.append(np.mean(next_reward))
             agent.update(*tr)
+
             step_log = snapshot_log(episode, env, agent, tr, log)
 
             # if iscontinuing:
@@ -176,11 +176,8 @@ def main(flags, timestamp):
     display_policy(env, agent)
 
     validation_rewards = []
-    done = True
+    state = env.reset()
     for _ in range(100):
-        if done:
-            state = env.reset()
-
         if render:
            env.render(mode='human', highlight=True)
            time.sleep(0.1)

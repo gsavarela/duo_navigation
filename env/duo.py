@@ -73,12 +73,13 @@ class Features:
         self.n_phi = (state.n_states * n_joint_actions, n_critic)
         self.n_critic = n_critic
         self.phi = uniform(low=-0.5, high=0.5, size=self.n_phi) 
-        self.phi = self.phi / np.linalg.norm(self.phi)
+        self.phi = self.phi / np.abs(self.phi).sum(keepdims=True, axis=-1)
 
         self.n_varphi = (state.n_states, team_actions.n_actions, state.n_agents, n_actor)
         self.n_actor = n_actor
         self.varphi = uniform(low=-0.5, high=0.5, size=self.n_varphi) 
-        self.varphi = self.varphi / np.linalg.norm(self.phi) 
+        self.varphi = self.varphi
+        self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
 
     def get_phi(self, state, actions): 
         k = self.team_actions.n_team_actions
@@ -483,7 +484,6 @@ class DuoNavigationEnv(MultiGridEnv):
 
         # Map to positions to states.
         agents_positions = [(self.state.get(pos), pos) for pos in agents_positions]
-
         # Order by states asc.
         agents_positions = sorted(agents_positions, key=itemgetter(0))
 
@@ -493,7 +493,9 @@ class DuoNavigationEnv(MultiGridEnv):
 
     @property
     def action_set(self):
-        return [*product(np.arange(4).tolist(), repeat=len(self.agents))]
+        res = product(np.arange(4).tolist(), repeat=len(self.agents)) 
+        if len(self.agents) == 2: res = sorted(res, key=itemgetter(1))
+        return [*res] # no generators.
 
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
