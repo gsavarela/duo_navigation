@@ -7,13 +7,11 @@ from pathlib import Path
 import time
 
 from env import make, register
-# from gym.envs.registration import register
-# from env import register
 import numpy as np
 
 from plots import (globally_averaged_plot, advantages_plot,
         q_values_plot, display_policy, validation_plot, snapshot_plot)
-from logs import logger, transition_update_log, best_actions_log, snapshot_log
+from logs import snapshot_log
 from utils import str2bool
 
 from agents import get_agent
@@ -103,20 +101,7 @@ def main(flags, timestamp):
     config_path = experiment_dir / 'config.json'
     with config_path.open('w') as f:
         json.dump(vars(flags), f)
-    state_actions = best_actions_log(env, experiment_dir)
     
-    # rewards = []
-
-    # TODO: Log as a decorator for functions.
-    # Takes snapshots of objects' internal states.
-    # if iscontinuing:
-    #     q_values = []
-    #     advantages = []
-    #     tr_dict = defaultdict(list)
-    # globally_averaged_returns = []
-    #     logger_log = logger(env, agent, state_actions)  
-    # else:
-    # rewards = []
     log = defaultdict(list)
 
     for episode in range(episodes):
@@ -130,46 +115,20 @@ def main(flags, timestamp):
                 time.sleep(0.1)
             next_state, next_reward, done, _ = env.step(actions)
 
-            # if iscontinuing: agent.update_mu(next_reward)
             next_actions = agent.act(next_state)
             tr = (state, actions, next_reward, next_state, next_actions)
 
-            # if iscontinuing:
-            # globally_averaged_returns.append(np.mean(agent.mu))
-            #     logger_log(advantages, q_values, tr, tr_dict, updated=False)
-            # else:
-            # rewards.append(np.mean(next_reward))
             agent.update(*tr)
 
             step_log = snapshot_log(episode, env, agent, tr, log)
 
-            # if iscontinuing:
-            #     logger_log(advantages, q_values, tr, tr_dict, updated=True)
-
-
             print(step_log)
-            # else:
-            # print(f'TRAIN: Episode: {episode}\t'
-            #       f'Steps: {env.step_count}\t'
-            #       f'Mean reward: {np.mean(rewards):0.4f}')
-
             state = next_state 
             actions = next_actions
             if done:
                 break
 
     agent.save_checkpoints(experiment_dir,str(episodes))
-    # if iscontinuing:
-    #     globally_averaged_plot(globally_averaged_returns, experiment_dir)
-    #     advantages_plot(advantages, experiment_dir, state_actions)
-    #     q_values_plot(q_values, experiment_dir, state_actions)
-    #     transition_update_log(tr_dict, experiment_dir)
-    #     if agent.n_agents == 1:
-    #         display_ac(env, agent)
-    #     else:
-    #         display_ac2(env, agent)
-    # else:
-    # globally_averaged_returns = np.cumsum(rewards) / np.arange(1, len(rewards) + 1)
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
