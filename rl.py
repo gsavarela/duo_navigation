@@ -94,6 +94,10 @@ def main(flags, timestamp):
     episodes = flags.episodes
     n_agents = flags.n_agents
     iscontinuing = not flags.episodic
+    def chkpt_save(episode):
+        if iscontinuing: return str(episode)
+        if episode % 100 == 0: return str(episode)
+        return None
 
     # Save parameters
     experiment_dir = Path('data') / timestamp
@@ -128,7 +132,8 @@ def main(flags, timestamp):
             if done:
                 break
 
-    agent.save_checkpoints(experiment_dir,str(episodes))
+        chkpt_num = chkpt_save(episode)
+        if chkpt_num is not None: agent.save_checkpoints(experiment_dir, chkpt_num)
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
