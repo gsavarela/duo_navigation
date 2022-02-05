@@ -42,7 +42,14 @@ class SARSATabular(object):
     @property
     def V(self):
         return np.max(self.Q, axis=1)
-        
+    
+    def PI(self, state):
+        # TODO: investigate why keepdims is not an option here.
+        # res = np.argmax(self.Q[state, :], axis=1, keepdims=True)
+        max_action = int(np.argmax(self.Q[state, :]))
+        res = [int(i == max_action) for i in range(self.n_joint_actions)]
+        return res
+
     def reset(self, seed=0, first=False):
         np.random.seed(seed)
         if not first: self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
@@ -134,6 +141,13 @@ class SARSASemiGradient(object):
         for state in range(self.n_states):
             q_values.append((self.PHI(state) @ self.omega).tolist())
         return np.array(q_values)
+
+    def PI(self, state):
+        # TODO: investigate why keepdims is not an option here.
+        # res = np.argmax(self.Q[state, :], axis=1, keepdims=True)
+        max_action = int(np.argmax(self.Q[state, :]))
+        res = [int(i == max_action) for i in range(self.n_joint_actions)]
+        return res
 
     def reset(self, seed=0):
         np.random.seed(seed)
