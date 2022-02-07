@@ -1,4 +1,7 @@
 '''Auxiliary function'''
+from itertools import product
+from operator import itemgetter
+
 import numpy as np
 import pandas as pd
 
@@ -7,6 +10,22 @@ MOVES = [np.array([1, 0]), np.array([0, 1]), np.array([-1, 0]), np.array([0, -1]
 
 def pos2str(pos):
     return f'{tuple(pos.tolist())}'
+
+def pos2state(positions, n_agents=2, width=2, height=2):
+    return sum([self.coord2index(x) * y for x, y in zip(positions, self.pow)])
+
+# width, height = grid.width-2, grid.height-2
+def coord2index(coord, width=2, height=2):
+    # | 00 | 01 | 02 | ... | 07 |
+    # + -- + -- + -- + ... + -- +
+    # | 08 | 09 | 10 | ... | 15 |
+    # + -- + -- + -- + ... + -- +
+    #           ...
+    # | 56 | 57 | 58 | ... | 63 |
+    # pos[0] from 1 ... grid.width -1
+    # pos[1] from 1 ... grid.width -1
+    rows, cols = (np.array(coord) - 1) 
+    return rows * self.width + cols
 
 def act2str(act):
     if act == 0: return '>'
@@ -80,3 +99,7 @@ def best_actions(agent_pos, goal_pos, width=None, height=None):
             res.append(i) 
     return res
 
+def action_set(n_agents):
+    res = product(np.arange(4).tolist(), repeat=n_agents) 
+    if n_agents== 2: res = sorted(res, key=itemgetter(1))
+    return [*res] # no generators.
