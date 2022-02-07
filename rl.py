@@ -77,6 +77,7 @@ def print_arguments(opts, timestamp):
 def validate_arguments(opts):
     assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
                 (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
+
 def main(flags, timestamp):
 
     # Instanciate environment and agent
@@ -94,10 +95,6 @@ def main(flags, timestamp):
     episodes = flags.episodes
     n_agents = flags.n_agents
     iscontinuing = not flags.episodic
-    def chkpt_save(episode):
-        if iscontinuing: return str(episode)
-        if episode % 100 == 0: return str(episode)
-        return None
 
     # Save parameters
     experiment_dir = Path('data') / timestamp
@@ -107,7 +104,6 @@ def main(flags, timestamp):
         json.dump(vars(flags), f)
     
     log = defaultdict(list)
-
     for episode in range(episodes):
         state = env.reset()
         agent.reset()
@@ -132,12 +128,13 @@ def main(flags, timestamp):
             if done:
                 break
 
-        chkpt_num = chkpt_save(episode)
-        if chkpt_num is not None: agent.save_checkpoints(experiment_dir, chkpt_num)
+    agent.save_checkpoints(experiment_dir, str(episodes))
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
-    display_policy(env, agent)
+    df = display_policy(env, agent)
+    df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
+    
 
     validation_rewards = []
     state = env.reset()

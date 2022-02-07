@@ -22,44 +22,24 @@ FIGURE_Y = 4.0
 CENTRALIZED_AGENT_COLOR = (0.2, 1.0, 0.2)
 
 def snapshot_plot(snapshot_log, img_path):
-    cumulative_rewards_plot(snapshot_log['reward'], img_path)
+
+    episodic = 'mu' not in snapshot_log
+    episodes = snapshot_log['episode']
+    rewards = snapshot_log['reward']
+    cumulative_rewards_plot(rewards, img_path, episodes, episodic)
 
     # For continous tasks
     if 'mu' in snapshot_log:
-        globally_averaged_plot(snapshot_log['mu'], img_path)
+        globally_averaged_plot(snapshot_log['mu'], img_path, episodes)
 
     
     snapshot_path = img_path / 'snapshot.json'
     with snapshot_path.open('w') as f:
         json.dump(snapshot_log, f)
 
-def globally_averaged_plot(mus, img_path):
-    
-    globally_averaged_return = np.array(mus)
-    n_steps = globally_averaged_return.shape[0]
-
-
-    fig = plt.figure()
-    fig.set_size_inches(FIGURE_X, FIGURE_Y)
-
-
-    X = np.linspace(1, n_steps, n_steps)
-    Y = globally_averaged_return
-
-    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label='Centralized')
-    plt.xlabel('Time')
-    plt.ylabel('Globally Averaged Return J')
-    plt.legend(loc=4)
-
-    file_name = img_path / 'globally_averaged_return.pdf'
-    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-    file_name = img_path / 'globally_averaged_return.png'
-    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-    plt.close()
-
 # use this only for continuing tasks.
 # episodes is a series with the episode numbers
-def globally_averaged_plot2(mus, img_path, episodes):
+def globally_averaged_plot(mus, img_path, episodes):
     
     globally_averaged_return = np.array(mus)
     
@@ -89,26 +69,7 @@ def globally_averaged_plot2(mus, img_path, episodes):
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-def cumulative_rewards_plot(rewards, img_path):
-    
-    fig = plt.figure()
-    fig.set_size_inches(FIGURE_X, FIGURE_Y)
-
-    Y = np.cumsum(rewards) / np.arange(1, len(rewards) + 1)
-    X = np.linspace(1, Y.shape[0], Y.shape[0])
-
-    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label='Centralized')
-    plt.xlabel('Time')
-    plt.ylabel('Cumulative Averaged Reward')
-    plt.legend(loc=4)
-
-    file_name = img_path / 'cumulative_averaged_reward.pdf'
-    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-    file_name = img_path / 'cumulative_averaged_reward.png'
-    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-    plt.close()
-
-def cumulative_rewards_plot2(rewards, img_path, episodes, episodic=False):
+def cumulative_rewards_plot(rewards, img_path, episodes, episodic=False):
     
     fig = plt.figure()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
@@ -119,9 +80,11 @@ def cumulative_rewards_plot2(rewards, img_path, episodes, episodic=False):
     if episodic:
         episodes_to_plot = np.arange(np.max(episodes))
         for episode in episodes_to_plot: 
-            rewards_episodes.append(np.mean(rewards[episodes == episode]))
+            rewards_episodes.append(np.sum(rewards[episodes == episode]))
         Y = np.array(rewards_episodes)
-        y_label = 'Average Reward Per Episode'
+        import ipdb; ipdb.set_trace()
+        suptitle = 'Team Return' 
+        y_label = 'Team Return Per Episode'
         x_label = 'Episodes'
         labels = 'SARSATabular'
 
@@ -134,12 +97,14 @@ def cumulative_rewards_plot2(rewards, img_path, episodes, episodic=False):
         n = np.tile(np.arange(1, Y.shape[0] + 1).reshape((-1, 1)), len(episodes_to_plot))
 
         Y = np.cumsum(Y, axis=0) / n
-        y_label = 'Cumulative Averages Reward Per Episode'
+        suptitle = 'Team Return' 
+        y_label = 'Cumulative Team Reward Per Episode'
         x_label = 'Timesteps'
         labels = [f'episode {epis}' for epis in episodes_to_plot]
 
     X = np.linspace(1, Y.shape[0], Y.shape[0])
 
+    plt.suptitle(suptitle)
     plt.plot(X, Y, label=labels)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
@@ -354,10 +319,6 @@ if __name__ == '__main__':
         with snapshot_path.open('r') as f:
             snapshot = json.load(f)
 
-        # if not episodic:
-        #     globally_averaged_plot2(snapshot['mu'], path, snapshot['episode'])
-        # cumulative_rewards_plot2(snapshot['reward'], path, snapshot['episode'], episodic=episodic)
-
         config_path = Path(path) / 'config.json'
         with config_path.open('r') as f: flags = json.load(f)
 
@@ -412,4 +373,3 @@ if __name__ == '__main__':
     plt.show()
     
 
-    # main(env, agent, path)
