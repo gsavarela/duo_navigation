@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 from operator import itemgetter
 from pathlib import Path
@@ -5,11 +6,13 @@ from pathlib import Path
 import gym
 from gym.envs.registration import register
 
-import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 
 from utils import pi2str, pos2str, act2str, acts2str, best_actions, q2str
+
+import numpy as np
+import pandas as pd
 
 
 plt.style.use('ggplot')
@@ -205,10 +208,10 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
 
 # TODO: port display_ac
 def display_policy(env, agent):
-    if hasattr(agent, 'PI'):
-        display_ac(env, agent)
-    else:
-        display_Q(env, agent)
+    #if hasattr(agent, 'PI'):
+    return display_ac(env, agent)
+    # else:
+    #     display_Q(env, agent)
 
         
 def display_Q(env, agent):
@@ -249,6 +252,7 @@ def display_ac(env, agent):
     action_set = env.action_set
     states_positions_gen = env.next_states()
     margin = '#' * 30
+    data = defaultdict(list)
     print(f'{margin} GOAL {margin}')
     print(f'GOAL: {goal_pos}')
     print(f'{margin} ACTOR {margin}')
@@ -265,6 +269,13 @@ def display_ac(env, agent):
                    f'\t{pi_log}\t{actions_log}'
                    f'\t{best_log}')
             print(msg)
+            data['state'].append(state)
+            data['Coord 1'].append(tuple(pos[0]))
+            data['Coord 2'].append(tuple(pos[1]))
+            data['V'].append(np.round(agent.V[state], 2))
+            data['move'].append(actions_log)
+            for i, pi in enumerate(agent.PI(state)):  
+                data[f'PI(state, {i})'].append(np.round(pi, 2))
         except StopIteration:
             break
 
@@ -286,8 +297,15 @@ def display_ac(env, agent):
                    f'\t{actions_log}'
                    f'\t{best_log}')
             print(msg)
+
+            for i, q in enumerate(agent.Q[state, :]):  
+                data[f'Q(state, {i})'].append(np.round(q, 2))
         except StopIteration:
             break
+    df = pd.DataFrame.from_dict(data). \
+            set_index('state')
+    
+    return df
 
 def validation_plot(rewards):
 
@@ -304,73 +322,94 @@ def validation_plot(rewards):
 
 if __name__ == '__main__':
     import json
-    # from rl import RLAgent
     from pathlib import Path
     from argparse import Namespace
-    # from operator import itemgetter
     from agents import get_agent
+
     # path = Path('data/20220205155519')
     # path = Path('data/20220205164323')
     # SARSA Tabular data/20220205175246 
     # path = Path('data/20220205175246')
+    # SARSA SG 20220205195417
+    # FullyCentralizedAC 20220205171328
 
-    # CentralizedActorCritic
-    path = Path('data/20220205171612')
+    EXPERIMENTS = [
+        # ('SarsaTabular', '20220207043611', True),
+        ('SarsaTabular', 'data/20220205175246', True),
+        ('Centralized A/C', 'data/20220205171612', False),
+        ('SARSA SG', 'data/20220205195417', False),
+        ('FullyCentralized A/C', 'data/20220205171328', False),
+        ('TabularFullyCentralized A/C', 'data/20220205182447', False),
+    ]
 
-    # snapshot_path = Path(path) / 'snapshot.json'
-    # with snapshot_path.open('r') as f:
-    #     snapshot = json.load(f)
+    labels = []
+    Ys = []
+    for label, path, episodic in EXPERIMENTS:
 
-    # globally_averaged_plot2(snapshot['mu'], path, snapshot['episode'])
-    # cumulative_rewards_plot2(d['reward'], path, d['episode'], episodic=True)
-    config_path = Path(path) / 'config.json'
-    with config_path.open('r') as f: flags = json.load(f)
+        print(f'Experiment ({label}): {path}')
 
-    # change from training to validation
-    flags['max_steps'] = 100
-    flags['episodic'] = False
-    flags = Namespace(**flags)
+        labels.append(label)
+        path = Path(path)
+        snapshot_path = Path(path) / 'snapshot.json'
+        with snapshot_path.open('r') as f:
+            snapshot = json.load(f)
 
-    # Instanciate
-    register(
-        id='duo-navigation-v0',
-        entry_point='env:DuoNavigationGameEnv',
-        kwargs={'flags': flags}
-    )
-    # TODO: Verify why env != agent.env
-    chkpt_num = max([int(p.parent.stem) for p in path.rglob('*chkpt')])
-    
-    # chkpt_path = sorted(chkpt_nums, key=itemgetter(0))[-1][-1]
-    env = gym.make('duo-navigation-v0')
-    agent = get_agent(env, flags).load_checkpoint(path, str(chkpt_num))
-    agent.env = env
+        # if not episodic:
+        #     globally_averaged_plot2(snapshot['mu'], path, snapshot['episode'])
+        # cumulative_rewards_plot2(snapshot['reward'], path, snapshot['episode'], episodic=episodic)
 
+        config_path = Path(path) / 'config.json'
+        with config_path.open('r') as f: flags = json.load(f)
 
-    rewards = []
-    for episode in range(100):
-        state = env.reset()
-        agent.reset()
-        actions = agent.act(state)
+        # change from training to validation
+        flags['max_steps'] = 100
+        flags['episodic'] = False
+        flags = Namespace(**flags)
 
-        episode_rewards = []
-        while True:
-            next_state, next_reward, done, _ = env.step(agent.act(state))
-            
-            episode_rewards.append(np.mean(next_reward))
-            state = next_state
-            if done: break
-        rewards.append(np.cumsum(episode_rewards) / np.arange(1, 101))
+        # Instanciate
+        register(
+            id='duo-navigation-v0',
+            entry_point='env:DuoNavigationGameEnv',
+            kwargs={'flags': flags}
+        )
+        # TODO: Verify why env != agent.env
+        chkpt_num = max([int(p.parent.stem) for p in path.rglob('*chkpt')])
+        env = gym.make('duo-navigation-v0')
+        agent = get_agent(env, flags).load_checkpoint(path, str(chkpt_num))
+        agent.env = env
+        if episodic: agent.epsilon = 0
 
-    # TODO: LOOP AND ADD LABELS.
-    Y = np.sum(np.stack(rewards), axis=0)
+        #df = display_policy(env, agent)
+        #df.to_csv(path / 'policy.csv', sep='\t')
+        rewards = []
+        for episode in range(100):
+            state = env.reset()
+            agent.reset()
+            actions = agent.act(state)
 
+            episode_rewards = []
+            while True:
+                next_state, next_reward, done, _ = env.step(agent.act(state))
+                
+                episode_rewards.append(np.mean(next_reward))
+                state = next_state
+                if done: break
+            rewards.append(np.cumsum(episode_rewards) / np.arange(1, 101))
+
+        # TODO: LOOP AND ADD LABELS.
+        Y = np.mean(np.stack(rewards), axis=0)
+        Ys.append(Y)
+
+    Y = np.stack(Ys).T
     fig = plt.figure()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
     X = np.linspace(1, Y.shape[0], Y.shape[0])
     plt.suptitle(f'Validation Round (N=100)')
-    plt.plot(X,Y)
+    plt.plot(X,Y, label=labels)
     plt.xlabel('Timesteps')
     plt.ylabel('Validation Averaged Rewards.')
+    plt.legend(loc=4)
     plt.show()
+    
 
     # main(env, agent, path)

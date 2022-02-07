@@ -2,7 +2,6 @@
 import time
 from itertools import product
 from operator import itemgetter
-# from functools import cached_property
 
 import numpy as np
 from numpy.random import uniform
@@ -70,21 +69,25 @@ class Features:
         self.team_actions = team_actions
         n_joint_actions = team_actions.n_team_actions
 
-        self.n_phi = (state.n_states * n_joint_actions, n_critic)
+        self.n_phi = (state.n_states, n_joint_actions, n_critic)
         self.n_critic = n_critic
-        self.phi = uniform(low=-0.5, high=0.5, size=self.n_phi) 
-        self.phi = self.phi / np.abs(self.phi).sum(keepdims=True, axis=-1)
+
+        self.phi = uniform(size=self.n_phi) 
+        self.phi_test = self.phi.copy().reshape((state.n_states * n_joint_actions, n_critic))
+        # self.phi = self.phi / np.abs(self.phi).sum(keepdims=True, axis=-1)
 
         self.n_varphi = (state.n_states, team_actions.n_actions, state.n_agents, n_actor)
         self.n_actor = n_actor
-        self.varphi = uniform(low=-0.5, high=0.5, size=self.n_varphi) 
-        self.varphi = self.varphi
-        self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
+        self.varphi = uniform(size=self.n_varphi) 
+        # self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
 
     def get_phi(self, state, actions): 
         k = self.team_actions.n_team_actions
         u = self.team_actions.get(actions)
-        return self.phi[state * k + u, :]
+        test = self.phi_test[state * k + u, :]
+        res = self.phi[state][u][:]
+        np.testing.assert_almost_equal(res, test)
+        return res
 
     def get_varphi(self, state):
         val = self.varphi[state, ...]

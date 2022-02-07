@@ -51,7 +51,7 @@ class SARSATabular(object):
         return res
 
     def reset(self, seed=0, first=False):
-        np.random.seed(seed)
+        # np.random.seed(seed)
         if not first: self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         
 

@@ -11,6 +11,7 @@ def int2act(act):
 
 # Use this to convert a list of actions into a joint action.
 def act2int(update):
+    # Gets the arguments using the function's signature.
     argspecs = getargspec(update).args
     actions_index = argspecs.index('actions') 
     next_actions_index = argspecs.index('next_actions') 
