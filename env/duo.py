@@ -5,18 +5,15 @@ from operator import itemgetter
 
 import numpy as np
 from numpy.random import uniform
+from cached_property import cached_property
 
 import gym
 from gym.envs.registration import register
 
-# from gym_multigrid.multigrid import Grid, Goal, MultiGridEnv, World
-# import gym_multigrid.multigrid as mult
-
-# TODO: deprecate this
 from env.duogrid import Agent, Grid, Goal, MultiGridEnv, World
-from env.duogrid import State, TeamActions, Features, NavigationActions
+from env.duogrid import NavigationActions
 
-from utils import action_set
+from utils import action_set, pos2state
 
 class DuoNavigationEnv(MultiGridEnv):
     """
@@ -45,11 +42,7 @@ class DuoNavigationEnv(MultiGridEnv):
             agents.append(Agent(self.world, i, view_size=view_size))
         self.goal_pos = None
 
-        # RL stuff
-        self.action_set = action_set(len(agents_index))
-        self.state = State(size, size, len(agents))
-        self.team_actions = TeamActions(len(NavigationActions.available), len(agents))
-        self.features = Features(self.state, self.team_actions)
+        
 
         super().__init__(
             grid_size=size,
@@ -193,10 +186,8 @@ class DuoNavigationEnv(MultiGridEnv):
         done = (self.step_count >= self.max_steps) or \
                 (self.episodic and self.goal_reached)
 
-        positions = [ag.pos for ag in self.agents]
-        state = self.state.get(positions)
         rewards = np.zeros(len(actions)); self._reward(rewards) 
-        return state, rewards, done, {}
+        return self.state, rewards, done, {}
 
     
     def reset(self):
@@ -220,9 +211,7 @@ class DuoNavigationEnv(MultiGridEnv):
         self.step_count = 0
 
         # Return first observation
-        positions = [ag.pos for ag in self.agents]
-        self.state.get(positions)
-        return self.state.get(positions)
+        return self.state
 
     def __str__(self):
         """
@@ -297,7 +286,7 @@ class DuoNavigationEnv(MultiGridEnv):
         agents_positions = product(agents_positions, repeat=len(self.agents))
 
         # Map to positions to states.
-        agents_positions = [(self.state.get(pos), pos) for pos in agents_positions]
+        agents_positions = [(pos2state(pos), pos) for pos in agents_positions]
         # Order by states asc.
         agents_positions = sorted(agents_positions, key=itemgetter(0))
 
@@ -305,18 +294,21 @@ class DuoNavigationEnv(MultiGridEnv):
             yield x, p
         return 0
 
-    # @property
-    # def state(self):
-    #     return self.pos2state(self.position)
+    @property
+    def state(self):
+        return pos2state(self.position)
 
-    # @property
-    # def n_states(self):
-    #     return (self.width - 2) * (self.height - 2)
+    @cached_property
+    def n_states(self):
+        return ((self.width - 2) * (self.height - 2)) ** len(self.agents)
 
-    # @property
-    # def position(self):
-    #     return [ag[i].pos for i in self.agents]
+    @property
+    def position(self):
+        return [ag.pos for ag in self.agents]
 
+    @cached_property
+    def action_set(self):
+        return action_set(len(self.agents))
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
     def __init__(self, **kwargs):

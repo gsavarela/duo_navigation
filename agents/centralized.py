@@ -22,6 +22,7 @@ from numpy.random import choice
 
 from utils import best_actions, i2q, q2i
 from decorators import int2act, act2int
+from features import Features
 
 def softmax(x):
     exp_x = np.exp(x)
@@ -44,7 +45,7 @@ class TabularCentralizedActorCritic:
 
         # TODO: optimize this.
         def phi(x, i):
-            return env.features.get_phi(x, self.action_set[i])
+            return Features().get_phi(x, self.action_set[i])
         self.phi = phi # use this for update.
         def PHI(x): # use this for acting.
             return np.array([self.phi(x, i) for i in range(len(self.action_set))])
@@ -52,7 +53,7 @@ class TabularCentralizedActorCritic:
 
         # Constants.
         self.n_agents = len(env.agents)
-        self.n_states = env.state.n_states
+        self.n_states = env.n_states
         self.n_actions = 4
         self.n_phi = 10
         self.n_varphi = 5
@@ -144,8 +145,8 @@ class FullyCentralizedActorCriticV2:
     '''
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
         # Inputs.
-        self.phi = env.features.get_phi
-        self.varphi = env.features.get_varphi
+        self.phi = Features().get_phi
+        self.varphi = Features().get_varphi
         self.action_set = env.action_set
         # TODO: make features#get_phi to get all actions.
         def PHI(x): # use this for Q
@@ -154,7 +155,7 @@ class FullyCentralizedActorCriticV2:
 
         # Constants.
         self.n_agents = len(env.agents)
-        self.n_states = env.state.n_states
+        self.n_states = env.n_states
         self.n_actions = 4
         self.n_phi = 10
         self.n_varphi = 5
@@ -287,14 +288,14 @@ class FullyCentralizedActorCriticV1:
         self.action_set = env.action_set
 
         # TODO: optimize this.
-        self.phi = env.features.get_phi # use this for update.
+        self.phi = Features().get_phi # use this for update.
         def PHI(x): # use this for acting.
             return np.array([self.phi(x, u) for u in self.action_set])
         self.PHI = PHI 
 
         # Constants.
         self.n_agents = len(env.agents)
-        self.n_states = env.state.n_states
+        self.n_states = env.n_states
         self.n_phi = 10
         self.decay = decay
 
@@ -402,8 +403,8 @@ class CentralizedActorCritic:
     '''
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
         # Inputs.
-        self.phi = env.features.get_phi
-        self.varphi = env.features.get_varphi
+        self.phi = Features().get_phi
+        self.varphi = Features().get_varphi
         self.action_set = env.action_set
         # TODO: make features#get_phi to get all actions.
         def PHI(x): # use this for Q
@@ -412,7 +413,7 @@ class CentralizedActorCritic:
 
         # Constants.
         self.n_agents = len(env.agents)
-        self.n_states = env.state.n_states
+        self.n_states = env.n_states
         self.n_actions = 4
         self.n_phi = 10
         self.n_varphi = 5

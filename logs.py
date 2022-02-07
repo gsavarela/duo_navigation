@@ -2,7 +2,9 @@ from collections import defaultdict
 import re
 import numpy as np
 import pandas as pd
+
 from utils import act2str, acts2str, pi2str, best_actions
+from features import Features
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
@@ -51,8 +53,9 @@ def display_critic(env, agent):
         # columns (coordinate x) 
         for j in range(1, env.width - 1): 
             positions = [np.array([j, i]), np.array([j, i])] 
-            state = env.state.get(positions)
-            scores = [env.features.get_phi(state, ac) @ agent.omega for ac in actions]
+            state = env.state
+            # scores = [env.features.get_phi(state, ac) @ agent.omega for ac in actions]
+            scores = [features().get_phi(state, ac) @ agent.omega for ac in actions]
             disact = acts2str(actions[np.argmax(scores)])
 
             actions_scores[i].append(np.argmax(scores))
@@ -81,8 +84,9 @@ def display_actor(env, agent):
             actions_display[k][i] = []
             for j in range(1, env.height - 1): 
                 positions = [np.array([i, j]), np.array([i, j])] 
-                state = env.state.get(positions)
-                varphi = env.features.get_varphi(state)
+                state = env.state
+                # varphi = env.features.get_varphi(state)
+                varphi = features().get_varphi(state)
                 pi_k = agent.pi(varphi, k)
                 pi_display[k][i].append(pi2str(pi_k))
                 actions_display[k][i].append(act2str(np.argmax(pi_k)))

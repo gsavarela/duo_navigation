@@ -13,6 +13,7 @@ from numpy.random import choice
 
 from utils import best_actions
 from decorators import int2act
+from features import Features
 
 
 class Optimal:
@@ -23,14 +24,14 @@ class Optimal:
         self.action_set = env.action_set
 
         # TODO: optimize this.
-        self.phi = env.features.get_phi # use this for update.
+        self.phi = Features().get_phi # use this for update.
         def PHI(x): # use this for acting.
             return np.array([self.phi(x, u) for u in self.action_set])
         self.PHI = PHI 
 
         # Constants.
         self.n_agents = len(env.agents)
-        self.n_states = env.state.n_states
+        self.n_states = env.n_states
         self.n_actions = 4
         self.n_phi = 10
         self.decay = decay
@@ -47,7 +48,6 @@ class Optimal:
 
         # Build the optimal policy
         self._build_policy(env)
-
 
     @property
     def V(self):
@@ -97,7 +97,7 @@ class Optimal:
     def _build_policy(self, env):
         states_positions_gen = env.next_states()
         def fn(x):
-            return best_actions(x, self.goal_pos, env.state.width, env.state.height)
+            return best_actions(x, self.goal_pos, env.width, env.height)
 
         try:
             res = []

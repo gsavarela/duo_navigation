@@ -82,7 +82,6 @@ def cumulative_rewards_plot(rewards, img_path, episodes, episodic=False):
         for episode in episodes_to_plot: 
             rewards_episodes.append(np.sum(rewards[episodes == episode]))
         Y = np.array(rewards_episodes)
-        import ipdb; ipdb.set_trace()
         suptitle = 'Team Return' 
         y_label = 'Team Return Per Episode'
         x_label = 'Episodes'

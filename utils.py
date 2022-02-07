@@ -12,7 +12,9 @@ def pos2str(pos):
     return f'{tuple(pos.tolist())}'
 
 def pos2state(positions, n_agents=2, width=2, height=2):
-    return sum([self.coord2index(x) * y for x, y in zip(positions, self.pow)])
+    w_h = width, height
+    b = (width * height)
+    return sum([coord2index(x, *w_h) * b ** y for y, x in enumerate(positions)])
 
 # width, height = grid.width-2, grid.height-2
 def coord2index(coord, width=2, height=2):
@@ -24,8 +26,8 @@ def coord2index(coord, width=2, height=2):
     # | 56 | 57 | 58 | ... | 63 |
     # pos[0] from 1 ... grid.width -1
     # pos[1] from 1 ... grid.width -1
-    rows, cols = (np.array(coord) - 1) 
-    return rows * self.width + cols
+    rows, cols = (coord - 1) 
+    return rows * width + cols
 
 def act2str(act):
     if act == 0: return '>'
