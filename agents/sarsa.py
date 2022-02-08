@@ -41,6 +41,15 @@ class SARSATabular(object):
         self.epsilon_step = (1 - 1e-2) / episodes
         self.reset(first=True)
 
+    # TODO: Move label and task to a model metaclass 
+    @property
+    def label(self):
+        return f'Sarsa Tabular'
+
+    @property
+    def task(self):
+        return 'episodic'
+
     @property
     def V(self):
         return np.max(self.Q, axis=1)
@@ -54,7 +63,10 @@ class SARSATabular(object):
 
     def reset(self, seed=0, first=False):
         # np.random.seed(seed)
-        if not first: self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
+        if first:
+            np.random.seed(seed)
+        else:
+            self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         
 
     @int2act
@@ -67,7 +79,6 @@ class SARSATabular(object):
 
     @act2int
     def update(self, state, actions, next_rewards, next_state, next_actions, *args, **kwargs):
-        # if state == 4 and actions == 3: import ipdb; ipdb.set_trace()
         self.Q[state, actions] += self.alpha * (np.mean(next_rewards) + self.gamma * \
                 self.Q[next_state, next_actions] - self.Q[state, actions])
         self.step_count += 1
@@ -105,7 +116,7 @@ class SARSASemiGradient(object):
         # The environment
         self.action_set = env.action_set
         # self.phi = env.features.get_phi
-        self.phi = Features().get_onehot
+        self.phi = Features().get
         # def PHI(x): # use this for acting.
         #     return np.array([self.phi(x, u) for u in self.action_set])
         # self.PHI = PHI 
@@ -130,7 +141,7 @@ class SARSASemiGradient(object):
         # self.beta = beta
         self.epsilon = 1
         self.epsilon_step = (1 - 1e-2) / episodes
-        self.reset()
+        self.reset(first=True)
 
     # TODO: Move label and task to a model metaclass 
     @property
@@ -170,9 +181,11 @@ class SARSASemiGradient(object):
         res = [int(i == max_action) for i in range(len(self.action_set))]
         return res
 
-    def reset(self, seed=None):
-        if seed is not None: np.random.seed(seed)
-        self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
+    def reset(self, seed=0, first=False):
+        if first:
+            np.random.seed(seed)
+        else:
+            self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
 
     def act(self, state):
         if rand() < self.epsilon:

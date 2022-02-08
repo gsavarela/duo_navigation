@@ -26,10 +26,19 @@ def snapshot_plot(snapshot_log, img_path):
     episodic = 'mu' not in snapshot_log
     episodes = snapshot_log['episode']
     rewards = snapshot_log['reward']
+
+    # TODO: remove get and make default __itemgetter__. 
+    label = snapshot_log.get('label', None)
+    task = snapshot_log.get('task', 'episodic')
     cumulative_rewards_plot(rewards, img_path, episodes, episodic)
 
-    # For continous tasks
-    if 'mu' in snapshot_log:
+    if task == 'episodic':
+
+        epsilons = snapshot_log['epsilon']
+        episode_duration_plot(episodes, epsilons, img_path, label=label)
+        episode_rewards_plot(episodes, rewards, img_path, label=label)
+    else:
+        # For continous tasks
         globally_averaged_plot(snapshot_log['mu'], img_path, episodes)
 
     
@@ -112,6 +121,99 @@ def cumulative_rewards_plot(rewards, img_path, episodes, episodic=False):
     file_name = img_path / 'cumulative_averaged_reward_per_episode.pdf'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     file_name = img_path / 'cumulative_averaged_reward_per_episode.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+def episode_rewards_plot(episodes, rewards, img_path, label=None):
+    fig = plt.figure()
+    fig.set_size_inches(FIGURE_X, FIGURE_Y)
+
+    target = 1
+    rewards = np.array(rewards)
+    episodes = np.array(episodes)
+    rewards_episodes = []
+    episodes_to_plot = np.arange(np.max(episodes))
+
+    for episode in episodes_to_plot: 
+        rewards_episodes.append(np.sum(rewards[episodes == episode]))
+
+    Y = np.array(rewards_episodes)
+
+    suptitle = 'Episode Return vs Target' 
+    y_label = 'Return Per Episode'
+    x_label = 'Episodes'
+
+    X = np.linspace(1, Y.shape[0], Y.shape[0])
+
+    plt.suptitle(suptitle)
+    plt.axhline(y=target, c='red', label='target')
+    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label=label)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
+    plt.legend(loc=4)
+    file_name = img_path / 'return_per_episode.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = img_path / 'return_per_episode.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+# Training 2-axes plot of episode length and vs episilon.
+def episode_duration_plot(episodes, epsilons, img_path, label=None):
+    
+    fig = plt.figure()
+    fig.set_size_inches(FIGURE_X, FIGURE_Y)
+
+    epsilons = np.array(epsilons)
+    episodes = np.array(episodes)
+    episodes_to_plot = np.arange(np.max(episodes))
+    episodes_duration = []
+    episodes_epsilon = []
+
+    for episode in episodes_to_plot: 
+        episodes_duration.append(np.sum(episodes == episode))
+        episodes_epsilon.append(np.mean(epsilons[episodes == episode]))
+
+    Y1 = np.array(episodes_duration)
+    Y2 = np.array(episodes_epsilon)
+    X = np.linspace(1, Y1.shape[0], Y1.shape[0])
+
+    suptitle = 'Duration vs. Epsilon' 
+    if label is not None:
+        suptitle += f': {label}'
+
+    y1_label = 'Duration'
+    y2_label = 'Epsilon'
+    x_label = 'Episodes'
+
+    #define colors to use
+    c1 = 'steelblue'
+    c2 = 'red'
+
+    #define subplots
+    fig, ax = plt.subplots()
+
+    #add first line to plot
+    ax.plot(X, Y1, color=c1)
+
+    #add x-axis label
+    ax.set_xlabel(x_label)
+
+    #add y-axis label
+    ax.set_ylabel(y1_label, color=c1)
+
+    #define second y-axis that shares x-axis with current plot
+    ax2 = ax.twinx()
+
+    #add second line to plot
+    ax2.plot(X, Y2, color=c2)
+
+    #add second y-axis label
+    ax2.set_ylabel(y2_label, color=c2)
+
+    plt.suptitle(suptitle)
+    file_name = img_path / 'duration_vs_epsilon.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = img_path / 'duration_vs_epsilon.png'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 

@@ -8,17 +8,25 @@ from features import Features
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
+    if 'task' not in log_dict: log_dict['task'] = agent.task
+    if 'label' not in log_dict: log_dict['label'] = agent.label
+
     actions = env.action_set
     log_dict['state'].append(int(tr[0]))
     log_dict['action'].append(actions.index(tuple(tr[1])))
     log_dict['reward'].append(np.mean(tr[2]))
     log_dict['step_count'].append(agent.step_count)
     log_dict['episode'].append(episode)
+    
 
     step_log = (f'TRAIN: Episode: {episode}\t'
                 f'Steps: {env.step_count}\t'
                 f'Average Reward: {np.mean(log_dict["reward"]):0.4f}\t')
     
+
+    if hasattr(agent, 'epsilon'):
+        log_dict['epsilon'].append(np.round(agent.epsilon, 4))
+
     if hasattr(agent, 'mu'):
         log_dict['mu'].append(np.mean(agent.mu))
         step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 

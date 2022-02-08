@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.random import uniform
 from utils import action_set, state2pos, coord2index
+from deprecated import deprecated
 # TODO: extend this to accept new parameters,
 # features as a singleton pattern
 
@@ -35,31 +36,55 @@ class Features:
             self.varphi = uniform(size=self.n_varphi) 
             # self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
 
-            # this features belong to the state only
-            self.onehot = np.tile(np.eye(WIDTH * HEIGHT), (N_AGENTS, 1, 1)).T
             
         return cls._instance
 
-    #TODO: Make this an incoming value.
-    @property
-    def label(self):
-        return 'Boolean'
 
+    @deprecated
     def get_phi(self, state, actions): 
         u = self.action_set.index(tuple(actions))
         res = self.phi[state][u][:]
         return res
 
+    @deprecated
     def get_varphi(self, state):
         val = self.varphi[state, ...]
         return val
 
+    @deprecated
     def get_onehot(self, state):
         pos = state2pos(state)
         indexes = [coord2index(p) for p in pos]
         indicators = [self.onehot[i, :, j] for j, i in enumerate(indexes)]
         onehot = np.hstack(indicators)
         return onehot
+
+    def set(self, features, n_features=None, n_agents=2, width=2, height=2, **kwargs):
+        self.label = features
+        self.n_states = (width * height) ** n_agents
+        self.n_features = (width * height) if n_features is None else n_features
+        
+
+        # THis is here for phi and varphi properties.
+        self.action_set = action_set(n_agents)
+        self.width = width
+        self.height = height
+
+
+        self.features = np.zeros((self.n_features, self.n_features, n_agents), dtype=float)
+        if 'onehot' in features:
+            # this features belong to the state only
+            self.features += np.tile(np.eye(self.n_features), (n_agents, 1, 1)).T
+
+        if 'uniform' in features:
+            # this features belong to the state only
+            self.features += uniform(low=-0.5, high=0.5, size=self.features.shape)
+
+    def get(self, state):
+        pos = state2pos(state)
+        indexes = [coord2index(p) for p in pos]
+        indicators = [self.features[i, :, j] for j, i in enumerate(indexes)]
+        return np.hstack(indicators)
         
         
         

@@ -14,6 +14,8 @@ from plots import (globally_averaged_plot, advantages_plot,
 from logs import snapshot_log
 from utils import str2bool
 
+from features import Features
+
 from agents import get_agent
 from agents import __all__ as AGENT_TYPES
 
@@ -44,6 +46,10 @@ parser.add_argument('-e', '--episodes', default=1, type=int,
         help='''Regulates the number of re-starts after the
                 GOAL has been reached. Keep in mind that the
                 task is continuing''')
+
+parser.add_argument('-f', '--features', default='onehot', type=str,
+        choices=['onehot', 'onehot+uniform', 'uniform'], 
+        help='''Valid For agents with function approximation.''')
 
 parser.add_argument('-E', '--episodic', default=True, type=str2bool,
         help='''Controls the nature of the task as continuing or episodic.''')
@@ -88,6 +94,12 @@ def main(flags, timestamp):
     )
     env = make('duo-navigation-v0').unwrapped
 
+    features = Features().set(
+        flags.features,
+        n_agents=len(env.agents),
+        width=env.width - 2,
+        height=env.height - 2
+    )
     agent = get_agent(env, flags) 
 
     # Loop control and execution flags.
