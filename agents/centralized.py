@@ -19,6 +19,7 @@ import dill
 
 import numpy as np
 from numpy.random import choice
+from deprecated import deprecated
 
 from utils import best_actions, i2q, q2i
 from decorators import int2act, act2int
@@ -38,6 +39,11 @@ class TabularCentralizedActorCritic:
         * Extended from Centralized Algorithm-1 Zhang, et al. 2018
 
     '''
+    @deprecated(
+    '''
+        * Support for continuing tasks will be temporarely dropped.
+        * Support for state-action features will be temporarely dropped.
+    ''')
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
 
         # Inputs.
@@ -143,6 +149,12 @@ class FullyCentralizedActorCriticV2:
         * Reference: Sutton and Barto, ActorCritic with eligibility traces.
           ---------
     '''
+
+    @deprecated(
+    '''
+        * Support for continuing tasks will be temporarely dropped.
+        * Support for state-action features will be temporarely dropped.
+    ''')
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
         # Inputs.
         self.phi = Features().get_phi
@@ -282,6 +294,12 @@ class FullyCentralizedActorCriticV1:
         * Extended from Centralized Algorithm-1 Zhang, et al. 2018
 
     '''
+
+    @deprecated(
+    '''
+        * Support for continuing tasks will be temporarely dropped.
+        * Support for state-action features will be temporarely dropped.
+    ''')
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
 
         # Inputs.
@@ -401,7 +419,14 @@ class CentralizedActorCritic:
         * Centralized Algorithm-1 Zhang, et al. 2018
 
     '''
+
+    @deprecated(
+    '''
+        * Support for continuing tasks will be temporarely dropped.
+        * Support for state-action features will be temporarely dropped.
+    ''')
     def __init__(self, env, alpha=0.5, beta=0.3, decay=True):
+
         # Inputs.
         self.phi = Features().get_phi
         self.varphi = Features().get_varphi

@@ -75,8 +75,8 @@ def print_arguments(opts, timestamp):
         print(f'\t{k}: {v}')
 
 def validate_arguments(opts):
-    assert (opts.agent_type == 'SARSATabular' and opts.episodic) or \
-                (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
+    assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient') and opts.episodic)
+    # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):
 
@@ -94,7 +94,7 @@ def main(flags, timestamp):
     render = flags.render
     episodes = flags.episodes
     n_agents = flags.n_agents
-    iscontinuing = not flags.episodic
+    episodic = flags.episodic
 
     # Save parameters
     experiment_dir = Path('data') / timestamp
@@ -116,7 +116,8 @@ def main(flags, timestamp):
             next_state, next_reward, done, _ = env.step(actions)
 
             next_actions = agent.act(next_state)
-            tr = (state, actions, next_reward, next_state, next_actions)
+            tr = [state, actions, next_reward, next_state, next_actions]
+            if episodic: tr.append(done)
 
             agent.update(*tr)
 
