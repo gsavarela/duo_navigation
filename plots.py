@@ -6,8 +6,8 @@ from pathlib import Path
 import gym
 from gym.envs.registration import register
 
-import matplotlib
 import matplotlib.pyplot as plt
+import statsmodels.api as sm
 
 from utils import pi2str, pos2str, act2str, acts2str, best_actions, q2str
 
@@ -20,6 +20,7 @@ plt.style.use('ggplot')
 FIGURE_X = 6.0
 FIGURE_Y = 4.0
 CENTRALIZED_AGENT_COLOR = (0.2, 1.0, 0.2)
+SMOOTHING_CURVE_COLOR = (0.33,0.33,0.33)
 
 def snapshot_plot(snapshot_log, img_path):
 
@@ -30,11 +31,10 @@ def snapshot_plot(snapshot_log, img_path):
     # TODO: remove get and make default __itemgetter__. 
     label = snapshot_log.get('label', None)
     task = snapshot_log.get('task', 'episodic')
-    cumulative_rewards_plot(rewards, img_path, episodes, episodic)
 
     if task == 'episodic':
-
         epsilons = snapshot_log['epsilon']
+        cumulative_rewards_plot(rewards, img_path, label)
         episode_duration_plot(episodes, epsilons, img_path, label=label)
         episode_rewards_plot(episodes, rewards, img_path, label=label)
     else:
@@ -78,49 +78,30 @@ def globally_averaged_plot(mus, img_path, episodes):
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-def cumulative_rewards_plot(rewards, img_path, episodes, episodic=False):
+def cumulative_rewards_plot(rewards, img_path, label=None):
     
     fig = plt.figure()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-    rewards = np.array(rewards)
-    episodes = np.array(episodes)
-    rewards_episodes = []
-    if episodic:
-        episodes_to_plot = np.arange(np.max(episodes))
-        for episode in episodes_to_plot: 
-            rewards_episodes.append(np.sum(rewards[episodes == episode]))
-        Y = np.array(rewards_episodes)
-        suptitle = 'Team Return' 
-        y_label = 'Team Return Per Episode'
-        x_label = 'Episodes'
-        labels = 'SARSATabular'
+    Y = np.cumsum(rewards) / np.arange(1, len(rewards) + 1)
+    X = np.linspace(1, len(rewards), len(rewards))
+    Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
 
-    else:
-        episodes_to_plot = (int(np.min(episodes)), int(np.mean(episodes)), int(np.max(episodes)))
-        for episode in episodes_to_plot: 
-            rewards_episodes.append(rewards[episodes == episode])
-        Y = np.vstack(rewards_episodes).T
+    suptitle = 'Team Return' 
+    y_label = 'Cumulative Averaged Reward'
+    x_label = 'Timestep'
 
-        n = np.tile(np.arange(1, Y.shape[0] + 1).reshape((-1, 1)), len(episodes_to_plot))
-
-        Y = np.cumsum(Y, axis=0) / n
-        suptitle = 'Team Return' 
-        y_label = 'Cumulative Team Reward Per Episode'
-        x_label = 'Timesteps'
-        labels = [f'episode {epis}' for epis in episodes_to_plot]
-
-    X = np.linspace(1, Y.shape[0], Y.shape[0])
 
     plt.suptitle(suptitle)
-    plt.plot(X, Y, label=labels)
+    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label=label)
+    plt.plot(X, Y_smooth[:, 1], label=f'Smoothed {label}')
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.legend(loc=4)
 
-    file_name = img_path / 'cumulative_averaged_reward_per_episode.pdf'
+    file_name = img_path / 'cumulative_averaged_rewards.pdf'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
-    file_name = img_path / 'cumulative_averaged_reward_per_episode.png'
+    file_name = img_path / 'cumulative_averaged_rewards.png'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 
@@ -129,25 +110,26 @@ def episode_rewards_plot(episodes, rewards, img_path, label=None):
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
     target = 1
+
     rewards = np.array(rewards)
     episodes = np.array(episodes)
     rewards_episodes = []
     episodes_to_plot = np.arange(np.max(episodes))
-
+    X = np.linspace(1, len(episodes_to_plot), len(episodes_to_plot))
     for episode in episodes_to_plot: 
         rewards_episodes.append(np.sum(rewards[episodes == episode]))
 
     Y = np.array(rewards_episodes)
+    Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
 
     suptitle = 'Episode Return vs Target' 
-    y_label = 'Return Per Episode'
+    y_label = 'Smoothed Return Per Episode'
     x_label = 'Episodes'
 
-    X = np.linspace(1, Y.shape[0], Y.shape[0])
 
     plt.suptitle(suptitle)
     plt.axhline(y=target, c='red', label='target')
-    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label=label)
+    plt.plot(X, Y_smooth[:, 1], c=SMOOTHING_CURVE_COLOR, label=label)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.legend(loc=4)
@@ -166,16 +148,17 @@ def episode_duration_plot(episodes, epsilons, img_path, label=None):
     epsilons = np.array(epsilons)
     episodes = np.array(episodes)
     episodes_to_plot = np.arange(np.max(episodes))
+    X = np.linspace(1, len(episodes_to_plot), len(episodes_to_plot))
+
     episodes_duration = []
     episodes_epsilon = []
-
     for episode in episodes_to_plot: 
         episodes_duration.append(np.sum(episodes == episode))
         episodes_epsilon.append(np.mean(epsilons[episodes == episode]))
 
     Y1 = np.array(episodes_duration)
+    Y1_smooth = sm.nonparametric.lowess(Y1, X, frac=0.10)
     Y2 = np.array(episodes_epsilon)
-    X = np.linspace(1, Y1.shape[0], Y1.shape[0])
 
     suptitle = 'Duration vs. Epsilon' 
     if label is not None:
@@ -193,13 +176,13 @@ def episode_duration_plot(episodes, epsilons, img_path, label=None):
     fig, ax = plt.subplots()
 
     #add first line to plot
-    ax.plot(X, Y1, color=c1)
+    ax.plot(X, Y1_smooth[:, 1], color=SMOOTHING_CURVE_COLOR)
 
     #add x-axis label
     ax.set_xlabel(x_label)
 
     #add y-axis label
-    ax.set_ylabel(y1_label, color=c1)
+    ax.set_ylabel(f'Smoothed {y1_label}', color=SMOOTHING_CURVE_COLOR)
 
     #define second y-axis that shares x-axis with current plot
     ax2 = ax.twinx()
