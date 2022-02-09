@@ -13,7 +13,7 @@ from numpy.random import rand, choice
 
 from decorators import int2act, act2int
 from utils import i2q, q2i
-from features import Features
+from features import get, label
 
 class SARSATabular(object):
     '''SARSA: On policy TD(0) policy control.
@@ -115,10 +115,8 @@ class SARSASemiGradient(object):
 
         # The environment
         self.action_set = env.action_set
-        self.phi = Features().get
 
         # Constants
-        # self.n_phi = Features().n_phi[-1]
         self.n_agents = len(env.agents)
         self.n_states = env.n_states
 
@@ -140,7 +138,7 @@ class SARSASemiGradient(object):
     # TODO: Move label and task to a model metaclass 
     @property
     def label(self):
-        return f'Sarsa SG ({Features().label})'
+        return f'Sarsa SG ({label()})'
 
     @property
     def task(self):
@@ -170,7 +168,7 @@ class SARSASemiGradient(object):
     def _cache_QS(self, state, step_count):
         qs = []
         for ind in range(len(self.action_set)):
-            qs.append((self.phi(state) @ self.omega[ind][:]).tolist())
+            qs.append((get(state) @ self.omega[ind][:]).tolist())
         return qs
 
     def PI(self, state):
@@ -197,12 +195,12 @@ class SARSASemiGradient(object):
     def update(self, state, actions, next_rewards, next_state, next_actions, done):
         ind = self.action_set.index(actions)
         if done:
-            delta = np.mean(next_rewards) - self.phi(state) @ self.omega[ind][:]
+            delta = np.mean(next_rewards) - get(state) @ self.omega[ind][:]
         else:
             delta = np.mean(next_rewards) + \
-                    (self.phi(next_state) -  self.phi(state)) @ self.omega[ind][:]
+                    (get(next_state) -  get(state)) @ self.omega[ind][:]
             
-        self.omega[ind][:] += self.alpha * delta * self.phi(state)
+        self.omega[ind][:] += self.alpha * delta * get(state)
         self.step_count += 1
         
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):

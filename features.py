@@ -5,6 +5,13 @@ from deprecated import deprecated
 # TODO: extend this to accept new parameters,
 # features as a singleton pattern
 
+# TODO: Accepts only state features
+def get(state):
+    return Features().get(state)
+
+def label():
+    return Features().label
+
 WIDTH = 2
 HEIGHT = 2
 N_AGENTS = 2
