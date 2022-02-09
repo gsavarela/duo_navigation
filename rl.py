@@ -42,6 +42,10 @@ parser.add_argument('-d', '--decay', default=True, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
                 Replaces `alpha` and `beta` parameters.''')
 
+parser.add_argument('-D', '--debug', default=True, type=str2bool,
+        help='''Makes step_count accesses to hard to approximate functions, e.g, 
+                V, Q and PI. Set to false for considerably less computing time.''')
+
 parser.add_argument('-e', '--episodes', default=1, type=int,
         help='''Regulates the number of re-starts after the
                 GOAL has been reached. Keep in mind that the
@@ -107,6 +111,7 @@ def main(flags, timestamp):
     episodes = flags.episodes
     n_agents = flags.n_agents
     episodic = flags.episodic
+    debug = flags.debug
 
     # Save parameters
     experiment_dir = Path('data') / timestamp
@@ -133,7 +138,7 @@ def main(flags, timestamp):
 
             agent.update(*tr)
 
-            step_log = snapshot_log(episode, env, agent, tr, log)
+            step_log = snapshot_log(episode, env, agent, tr, log, debug=debug)
 
             print(step_log)
             state = next_state 
