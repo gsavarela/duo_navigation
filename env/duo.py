@@ -140,7 +140,7 @@ class DuoNavigationEnv(MultiGridEnv):
         Compute the reward to be given upon success
         """
         for j, ag in enumerate(self.agents):
-            rewards[j] = goal_reward if self.goal_reached else -1e-3
+            rewards[j] = goal_reward if self.goal_reached else -1e-1
 
     @property
     def goal_reached(self):

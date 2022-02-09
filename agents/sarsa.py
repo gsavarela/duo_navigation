@@ -12,7 +12,7 @@ import numpy as np
 from numpy.random import rand, choice
 
 from decorators import int2act, act2int
-from utils import i2q, q2i
+from utils import i2q
 from features import get, label
 
 class SARSATabular(object):
@@ -111,7 +111,7 @@ class SARSASemiGradient(object):
         -----------
         * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 251).
     ''' 
-    def __init__(self, env, alpha=0.2, episodes=20):
+    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=20):
 
         # The environment
         self.action_set = env.action_set
@@ -131,6 +131,7 @@ class SARSASemiGradient(object):
         # Loop control
         self.step_count = 0
         self.alpha = alpha
+        self.gamma = gamma
         self.epsilon = 1
         self.epsilon_step = (1 - 1e-2) / episodes
         self.reset(first=True)
@@ -174,7 +175,7 @@ class SARSASemiGradient(object):
     def PI(self, state):
         # TODO: investigate why keepdims is not an option here.
         # res = np.argmax(self.Q[state, :], axis=1, keepdims=True)
-        max_action = int(np.argmax(self.Q[state, :]))
+        max_action = int(np.argmax(self._cache_QS(state, self.step_count)))
         res = [int(i == max_action) for i in range(len(self.action_set))]
         return res
 
@@ -186,22 +187,25 @@ class SARSASemiGradient(object):
 
     def act(self, state):
         if rand() < self.epsilon:
-            ind = choice(len(self.action_set))
+            cur = choice(len(self.action_set))
         else:
             qs = self._cache_QS(state, self.step_count)
-            ind = np.argmax(qs)
-        return self.action_set[ind]
+            cur = np.argmax(qs)
+        return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions, done):
-        ind = self.action_set.index(actions)
+        cur = self.action_set.index(actions)
+        nxt = self.action_set.index(next_actions)
         if done:
-            delta = np.mean(next_rewards) - get(state) @ self.omega[ind][:]
+            delta = np.mean(next_rewards) - (get(state) @ self.omega[cur][:])
         else:
             delta = np.mean(next_rewards) + \
-                    (get(next_state) -  get(state)) @ self.omega[ind][:]
-            
-        self.omega[ind][:] += self.alpha * delta * get(state)
+                    (self.gamma * (get(next_state) @ self.omega[nxt]) - \
+                        get(state) @ self.omega[cur])
+
+        self.omega[cur][:] += self.alpha * np.clip(delta, -1, 1)  * get(state)
         self.step_count += 1
+        return delta
         
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()

@@ -86,6 +86,7 @@ class Features:
         if 'uniform' in features:
             # this features belong to the state only
             self.features += uniform(low=-0.5, high=0.5, size=self.features.shape)
+        self.features = l2_norm(self.features)
 
     def get(self, state):
         pos = state2pos(state)
@@ -94,4 +95,14 @@ class Features:
         return np.hstack(indicators)
         
         
-        
+def l2_norm(features):
+    # get original shape
+    orig_shape = features.shape
+
+    # expand axis=1 onto axis=2 (reduce dims)
+    features = np.hstack(features)
+
+    # vector norm over axis 1
+    features = features / np.linalg.norm(features, keepdims=True, axis=1)
+
+    return features.reshape(orig_shape)
