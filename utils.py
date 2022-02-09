@@ -87,8 +87,8 @@ def str2bool(v, exception=None):
 
 # converts integer to a quaternary list.
 def i2q(ind, n_agents):
-    if n_agents == 1: return [ind % 4]
-    if n_agents == 2: return [ind % 4, ind // 4]
+    if n_agents == 1: return [int(ind % 4)]
+    if n_agents == 2: return [int(ind % 4), int(ind // 4)]
     raise KeyError(f'i2q: 0 < {ind} < {4 ** n_agents - 1}')
 
 # converts a quaternary list to an array.
