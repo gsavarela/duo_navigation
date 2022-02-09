@@ -115,11 +115,7 @@ class SARSASemiGradient(object):
 
         # The environment
         self.action_set = env.action_set
-        # self.phi = env.features.get_phi
         self.phi = Features().get
-        # def PHI(x): # use this for acting.
-        #     return np.array([self.phi(x, u) for u in self.action_set])
-        # self.PHI = PHI 
 
         # Constants
         # self.n_phi = Features().n_phi[-1]
@@ -133,12 +129,10 @@ class SARSASemiGradient(object):
         # Parameters
         # The feature are related to the state.
         self.omega = np.zeros((len(self.action_set), n_features))
-        # self.mu = 0
 
         # Loop control
         self.step_count = 0
         self.alpha = alpha
-        # self.beta = beta
         self.epsilon = 1
         self.epsilon_step = (1 - 1e-2) / episodes
         self.reset(first=True)
@@ -168,11 +162,16 @@ class SARSASemiGradient(object):
     def _cache_Q(self, step_count):
         q_values = []
         for state in range(self.n_states):
-            qa_values = []
-            for ind in range(len(self.action_set)):
-                qa_values.append((self.phi(state) @ self.omega[ind][:]).tolist())
-            q_values.append(qa_values)
+            qs = self._cache_QS(state, step_count)
+            q_values.append(qs)
         return np.array(q_values)
+
+    @lru_cache(maxsize=1)
+    def _cache_QS(self, state, step_count):
+        qs = []
+        for ind in range(len(self.action_set)):
+            qs.append((self.phi(state) @ self.omega[ind][:]).tolist())
+        return qs
 
     def PI(self, state):
         # TODO: investigate why keepdims is not an option here.
@@ -191,10 +190,8 @@ class SARSASemiGradient(object):
         if rand() < self.epsilon:
             ind = choice(len(self.action_set))
         else:
-            q_values = []
-            for ind in range(len(self.action_set)):
-                q_values.append(self.phi(state) @ self.omega[ind][:])
-            ind = np.argmax(q_values)
+            qs = self._cache_QS(state, self.step_count)
+            ind = np.argmax(qs)
         return self.action_set[ind]
 
     def update(self, state, actions, next_rewards, next_state, next_actions, done):
