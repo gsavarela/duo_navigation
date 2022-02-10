@@ -85,8 +85,7 @@ class SARSADifferentialSemiGradient(object):
         return res
 
     def reset(self, seed=0, first=False):
-        if first:
-            np.random.seed(seed)
+        np.random.seed(seed)
         self.mu = 0
 
 

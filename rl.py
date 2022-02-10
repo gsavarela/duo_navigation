@@ -140,9 +140,6 @@ def main(flags, timestamp):
             agent.update(*tr)
             step_log = snapshot_log(episode, env, agent, tr, log, debug=debug)
 
-            # extra logging
-            # extra_log = f'\tstate: {state}\tactions: {actions}\tdelta: {delta:0.2f}'
-            # print(step_log + extra_log)
             print(step_log)
             state = next_state 
             actions = next_actions

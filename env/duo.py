@@ -149,8 +149,15 @@ class DuoNavigationEnv(MultiGridEnv):
 
     def step(self, actions):
         self.step_count += 1
-        done = False
 
+        # Timeout or goal
+        done = (self.step_count >= self.max_steps) or \
+                (self.episodic and self.goal_reached)
+
+        # Agent earns the reward by reaching the goal
+        # not by making the action that leads to goal.
+        rewards = np.ones(len(actions)) * -1e-1
+        if self.goal_reached: rewards = -rewards
         for i, ag in enumerate(self.agents):
 
             # uses terminated as indicator that it has reached the goal.
@@ -182,11 +189,6 @@ class DuoNavigationEnv(MultiGridEnv):
                 self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
-        # Timeout or goal
-        done = (self.step_count >= self.max_steps) or \
-                (self.episodic and self.goal_reached)
-
-        rewards = np.zeros(len(actions)); self._reward(rewards) 
         return self.state, rewards, done, {}
 
     
