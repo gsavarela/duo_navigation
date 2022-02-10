@@ -27,16 +27,21 @@ parser = argparse.ArgumentParser(description='''
     > python rl.py -s 2 -n 2 -e 2000 -m 100 -R 0 -A SARSATabular
     Where
 ''')
-parser.add_argument('-a', '--alpha', default=0.5, type=float,
-        help='''Alpha is the critic parameter:
-                Only active if `decay` is False.''')
 
 parser.add_argument('-A', '--agent_type', default='SARSATabular', type=str,
         choices=AGENT_TYPES, help='''A Reinforcement Learning Agent.''')
 
+parser.add_argument('-a', '--alpha', default=0.5, type=float,
+        help='''Alpha is the critic parameter:
+                Only active if `decay` is False.''')
+
 parser.add_argument('-b', '--beta', default=0.3, type=float,
         help='''Beta is the actor parameter:
-                Only active if `decay` is False.''')
+                Reward attenuation for continuing tasks.''')
+
+parser.add_argument('-z', '--zeta', default=0.1, type=float,
+        help='''Zeta is the actor parameter:
+                Actor learning rate for continuing tasks.''')
 
 parser.add_argument('-d', '--decay', default=True, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
@@ -75,7 +80,8 @@ parser.add_argument('-r', '--random_starts', default=True, type=str2bool,
         help='''The number of agents on the grid:
                 Should be either `1` or `2`. Use `1` for debugging.''')
 
-parser.add_argument('-R', '--render', default=False, type=str2bool, help='''Shows the grid during the training.''')
+parser.add_argument('-R', '--render', default=False, type=str2bool,
+        help='''Shows the grid during the training.''')
 
 def print_arguments(opts, timestamp):
 
@@ -86,7 +92,7 @@ def print_arguments(opts, timestamp):
 
 def validate_arguments(opts):
     assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient') and opts.episodic) or \
-        (opts.agent_type in ('SARSADifferentialSemiGradient',) and not opts.episodic)
+        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCritic') and not opts.episodic)
     # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):

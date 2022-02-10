@@ -3,10 +3,13 @@ from itertools import product
 from operator import itemgetter
 
 import numpy as np
-import pandas as pd
 
 # `right`, `down`, `left`, `up`
 MOVES = [np.array([1, 0]), np.array([0, 1]), np.array([-1, 0]), np.array([0, -1])]
+
+def softmax(x):
+    expx = np.exp(x - np.max(x))
+    return expx / expx.sum(keepdims=True)
 
 def pos2str(pos):
     return f'{tuple(pos.tolist())}'
