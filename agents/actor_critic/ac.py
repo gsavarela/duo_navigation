@@ -37,7 +37,7 @@ class ActorCritic(object):
         # Parameters
         # The feature are state-value function features, i.e,
         # the generalize w.r.t the actions.
-        self.omega = np.zeros((len(self.action_set), n_features))
+        self.omega = np.zeros(n_features)
         self.theta = np.zeros((len(self.action_set), n_features))
         self.mu = 0
 
@@ -46,6 +46,8 @@ class ActorCritic(object):
         self.alpha = alpha
         self.beta = beta
         self.zeta = zeta
+        self.z_theta = np.zeros_like(self.omega)
+        self.z_omega = np.zeros_like(self.omega)
         self.epsilon = 1
         self.epsilon_step = (1 - 1e-2) / (episodes * env.max_steps)
         self.reset(seed=0)
@@ -65,28 +67,28 @@ class ActorCritic(object):
     @lru_cache(maxsize=1)
     def _cache_V(self, step_count):
         return np.array([
-            self.Q[state] @ self._cache_PIS(state, self.step_count) for state in range(self.n_states)
+            get(state) @ self.omega for state in range(self.n_states)
         ])
 
-    @property
-    def Q(self):
-        return self._cache_Q(self.step_count)
-    
-    @lru_cache(maxsize=1)
-    def _cache_Q(self, step_count):
-        q_values = []
-        for state in range(self.n_states):
-            qs = self._cache_QS(state, step_count)
-            q_values.append(qs)
-        return np.array(q_values)
+    # @property
+    # def Q(self):
+    #     return self._cache_Q(self.step_count)
+    # 
+    # @lru_cache(maxsize=1)
+    # def _cache_Q(self, step_count):
+    #     q_values = []
+    #     for state in range(self.n_states):
+    #         qs = self._cache_QS(state, step_count)
+    #         q_values.append(qs)
+    #     return np.array(q_values)
 
-    @lru_cache(maxsize=1)
-    def _cache_QS(self, state, step_count):
-        # TODO: Test straight forward multiplication.
-        qs = []
-        for ind in range(len(self.action_set)):
-            qs.append((get(state) @ self.omega[ind][:]).tolist())
-        return qs
+    # @lru_cache(maxsize=1)
+    # def _cache_QS(self, state, step_count):
+    #     # TODO: Test straight forward multiplication.
+    #     qs = []
+    #     for ind in range(len(self.action_set)):
+    #         qs.append((get(state) @ self.omega[ind][:]).tolist())
+    #     return qs
 
     def PI(self, state):
         return self._cache_PIS(state, self.step_count).tolist() 
@@ -101,10 +103,9 @@ class ActorCritic(object):
 
 
     def act(self, state):
-        if rand() < self.epsilon:
-            cur = choice(len(self.action_set))
-        else:
-            cur = choice(len(self.action_set), p=self.PI(state))
+        tau = self.epsilon * 100
+        prob = softmax(get(state) @ self.theta.T / tau)
+        cur = choice(len(self.action_set), p=prob)
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
@@ -112,20 +113,27 @@ class ActorCritic(object):
         nxt = self.action_set.index(next_actions)
 
         delta = np.mean(next_rewards) - self.mu  + \
-                ((get(next_state) @ self.omega[nxt]) - get(state) @ self.omega[cur])
+                (get(next_state) - get(state)) @ self.omega
 
         self.mu += self.beta * delta
-        self.omega[cur] += self.alpha * delta * get(state)
-        self.theta[cur] += self.zeta * self.A(state, cur) * self.psi(state, cur)
+
+        self.z_omega = 0.5 * self.z_omega + get(state)
+        self.z_theta = 0.5 * self.z_theta + self.psi(state, cur)
+
+
+        self.omega += self.alpha * delta * self.z_omega 
+        self.theta[cur] += self.zeta * delta * self.z_theta
+        # self.omega += self.alpha * delta * get(state)
+        # self.theta[cur] += self.zeta * delta * self.psi(state, cur)
+        # self.theta[cur] += self.zeta * self.A(state, cur) * self.psi(state, cur)
         self.epsilon = max(1e-2, self.epsilon - self.epsilon_step)
         self.step_count += 1
         
     def psi(self, state, action):
-        p_action = self._cache_PIS(state, self.step_count)[action]
-        return (1 - p_action) * get(state)
+        return (1 - self.PI(state)[action]) * get(state)
 
-    def A(self, state, action):
-        return get(state) @ (self.omega[action] - self.PI(state) @ self.omega)
+    # def A(self, state, action):
+    #     return get(state) @ (self.omega[action] - self.PI(state) @ self.omega)
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()

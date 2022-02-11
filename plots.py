@@ -328,29 +328,30 @@ def display_ac(env, agent):
         except StopIteration:
             break
 
-    print(f'{margin} CRITIC {margin}')
-    states_positions_gen = env.next_states()
-    while True:
-        try:
-            state, pos = next(states_positions_gen)
+    if hasattr(agent, 'Q'):
+        print(f'{margin} CRITIC {margin}')
+        states_positions_gen = env.next_states()
+        while True:
+            try:
+                state, pos = next(states_positions_gen)
 
-            max_action = np.argmax(agent.Q[state, :])
-            actions_log = acts2str(action_set[max_action])
+                max_action = np.argmax(agent.Q[state, :])
+                actions_log = acts2str(action_set[max_action])
 
-            best_log = ', '.join([acts2str(bact(p)) for p in pos])
-            pos_log = ', '.join([pos2str(p) for p in pos])
-            msg = (f'\t{state}'
-                   f'\t{agent.V[state]:0.2f}'
-                   f'\t{pos_log}'
-                   f'\t{q2str(agent.Q[state, :])}'
-                   f'\t{actions_log}'
-                   f'\t{best_log}')
-            print(msg)
+                best_log = ', '.join([acts2str(bact(p)) for p in pos])
+                pos_log = ', '.join([pos2str(p) for p in pos])
+                msg = (f'\t{state}'
+                       f'\t{agent.V[state]:0.2f}'
+                       f'\t{pos_log}'
+                       f'\t{q2str(agent.Q[state, :])}'
+                       f'\t{actions_log}'
+                       f'\t{best_log}')
+                print(msg)
 
-            for i, q in enumerate(agent.Q[state, :]):  
-                data[f'Q(state, {i})'].append(np.round(q, 2))
-        except StopIteration:
-            break
+                for i, q in enumerate(agent.Q[state, :]):  
+                    data[f'Q(state, {i})'].append(np.round(q, 2))
+            except StopIteration:
+                break
     df = pd.DataFrame.from_dict(data). \
             set_index('state')
     
