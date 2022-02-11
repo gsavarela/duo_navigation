@@ -9,7 +9,7 @@ from gym.envs.registration import register
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 
-from utils import pi2str, pos2str, act2str, acts2str, best_actions, q2str
+from utils import pi2str, pos2str, act2str, act2str2, best_actions, q2str
 
 import numpy as np
 import pandas as pd
@@ -43,9 +43,11 @@ def snapshot_plot(snapshot_log, img_path):
 
     
     snapshot_path = img_path / 'snapshot.json'
-    with snapshot_path.open('w') as f:
-        json.dump(snapshot_log, f)
-
+    try:
+        with snapshot_path.open('w') as f:
+            json.dump(snapshot_log, f)
+    except TypeError:
+        import ipdb; ipdb.set_trace()
 # use this only for continuing tasks.
 # episodes is a series with the episode numbers
 def globally_averaged_plot(mus, img_path, episodes):
@@ -278,9 +280,9 @@ def display_Q(env, agent):
     while True:
         try:
             state, pos = next(states_positions_gen)
-            actions_log = acts2str(action_set[np.argmax(agent.Q[state, :])])
+            actions_log = act2str2(action_set[np.argmax(agent.Q[state, :])])
 
-            best_log = ', '.join([acts2str(bact(p)) for p in pos])
+            best_log = ', '.join([act2str2(bact(p)) for p in pos])
             pos_log = ', '.join([pos2str(p) for p in pos])
             msg = (f'\t{state}'
                    f'\t{agent.V[state]:0.3f}'
@@ -294,7 +296,13 @@ def display_Q(env, agent):
 
 def display_ac(env, agent):
     goal_pos = env.goal_pos
-    def bact(x): return best_actions(x, np.array(list(goal_pos)))
+    def bact(x):
+        return best_actions(
+            x,
+            np.array(list(goal_pos)),
+            width=env.width - 2,
+            height= env.height - 2
+        )
     print(env)
 
 
@@ -309,22 +317,30 @@ def display_ac(env, agent):
         try:
             state, pos = next(states_positions_gen)
             pi_log = pi2str(agent.PI(state))
-            max_actions = np.argmax(agent.PI(state))
-            actions_log = acts2str(action_set[max_actions])
-            best_log = ', '.join([acts2str(bact(p)) for p in pos])
+            max_action = np.argmax(agent.PI(state))
+            actions_log = act2str2([max_action])
+            actions_optimal = bact(pos)
+            best_log = act2str2(actions_optimal)
             pos_log = ', '.join([pos2str(p) for p in pos])
             msg = (f'\t{state}\t{pos_log}'
                    f'\t{agent.V[state]:0.2f}'
-                   f'\t{pi_log}\t{actions_log}'
-                   f'\t{best_log}')
+                   f'\t{pi_log}\n'
+                   f'\t{state}\t{pos_log}'
+                   f'\t{agent.V[state]:0.2f}'
+                   f'\t{actions_log}\tin\t{best_log}: {max_action in actions_optimal}\n'
+                   f'{"-" * 150}')
             print(msg)
             data['state'].append(state)
             data['Coord 1'].append(tuple(pos[0]))
             data['Coord 2'].append(tuple(pos[1]))
             data['V'].append(np.round(agent.V[state], 2))
-            data['move'].append(actions_log)
+            data['move_most_likely'].append(actions_log)
+            data['move_optimal'].append(best_log)
+            pr_success = 0
             for i, pi in enumerate(agent.PI(state)):  
                 data[f'PI(state, {i})'].append(np.round(pi, 2))
+                if i in actions_optimal: pr_success += pi
+            data[f'PI(state, success)'].append(np.round(pr_success, 2))
         except StopIteration:
             break
 
@@ -336,9 +352,9 @@ def display_ac(env, agent):
                 state, pos = next(states_positions_gen)
 
                 max_action = np.argmax(agent.Q[state, :])
-                actions_log = acts2str(action_set[max_action])
+                actions_log = act2str2(action_set[max_action])
 
-                best_log = ', '.join([acts2str(bact(p)) for p in pos])
+                best_log = ', '.join([act2str2(bact(p)) for p in pos])
                 pos_log = ', '.join([pos2str(p) for p in pos])
                 msg = (f'\t{state}'
                        f'\t{agent.V[state]:0.2f}'

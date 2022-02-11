@@ -6,6 +6,10 @@ import numpy as np
 
 # `right`, `down`, `left`, `up`
 MOVES = [np.array([1, 0]), np.array([0, 1]), np.array([-1, 0]), np.array([0, -1])]
+DIRECTIONS = [  '(>, >)', '(V, >)', '(<, >)', '(^, >)',
+                '(>, V)', '(V, V)', '(<, V)', '(^, V)',
+                '(>, <)', '(V, <)', '(<, <)', '(^, <)',
+                '(>, ^)', '(V, ^)', '(<, ^)', '(^, ^)', ]
 
 def softmax(x):
     expx = np.exp(x - np.max(x))
@@ -65,8 +69,8 @@ def act2str(act):
     if act == 3: return '^'
     raise KeyError(f'{act} is not a valid action')
 
-def acts2str(acts):
-    moves = ', '.join([act2str(act) for act in acts])
+def act2str2(acts):
+    moves = ', '.join([DIRECTIONS[act] for act in acts])
     return f'({moves})'
 
 def pi2str(probs):
@@ -98,33 +102,40 @@ def i2q(ind, n_agents):
 def q2i(acts):
     return int(sum([act * (4 ** i) for i, act in enumerate(acts)]))
 
-
+def isarr(x): return isinstance(x, np.ndarray)
 # The best action is the one that brings the agent closest
 # to the goal.
-def best_actions(agent_pos, goal_pos, width=None, height=None):
+def best_actions(agent_positions, goal_pos, width=None, height=None):
 
+    # Agent positions must be a list.
+    moves = product(MOVES, repeat=len(agent_positions))
+    if len(agent_positions) == 2: moves = [mov[-1::-1] for mov in moves]
     if not ((width is None) or (height is None)):
         # Handles grid boundaries
         def next_position(pos, move):
-            npos = pos + move
-            if np.min(npos) < 1 or npos[0] > width or npos[1] > height:
-                return pos  # don't make the move.
-            return npos
+            if isarr(pos) and isarr(move):
+                npos = pos + move
+                if np.min(npos) < 1 or npos[0] > width or npos[1] > height:
+                    return pos  # don't make the move.
+                return npos
+            return [next_position(p, m) for p, m in zip(pos, move)]
     else:
         # Handles only lower grid boundaries 
         def next_position(pos, move):
-            npos = pos + move
-            return pos if np.min(npos) < 1 else npos
-
+            if isarr(pos) and isarr(move):
+                npos = pos + move
+                return pos if np.min(npos) < 1 else npos
+            return [next_position(p, m) for p, m in zip(pos, move)]
 
     # Manhattan distance
     def dist(x):
-        return np.abs(goal_pos - x).sum()
+        if isarr(x): return np.abs(goal_pos - x).sum()
+        return np.max([*map(dist, x)])
 
-    prev_dist = dist(agent_pos)
+    prev_dist = dist(agent_positions)
     res = []
-    for i, move in enumerate(MOVES):
-        next_dist  = dist(next_position(agent_pos, move))
+    for i, move in enumerate(moves):
+        next_dist  = dist(next_position(agent_positions, move))
         if next_dist < prev_dist or \
             (next_dist == prev_dist and prev_dist == 0):
             res.append(i) 
@@ -137,6 +148,11 @@ def action_set(n_agents):
 
 if __name__ == '__main__':
     n_agents = 2
+    width, height = 2, 2
+    goal_pos = np.array([2, 1])
+    def bact(x):
+        return best_actions(x, goal_pos, width=width, height=height)
+
     states_positions = [
         (0,       [(1, 1), (1, 1)]),
         (1,       [(1, 2), (1, 1)]),
@@ -157,7 +173,10 @@ if __name__ == '__main__':
 
     ]
     for state, position in states_positions:
-        ag1, ag2 = state2pos(state, n_agents)
-     #   print(state, ag1, ag2, position)
-        assert [tuple(ag1), tuple(ag2)] == position
+        agent_positions = state2pos(state, n_agents)
+        assert [*map(tuple, agent_positions)] == position
+
+        astar = bact(agent_positions)
+        print(state, agent_positions, astar, act2str2(astar))
+
 

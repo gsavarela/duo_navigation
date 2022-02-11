@@ -3,7 +3,7 @@ import re
 import numpy as np
 import pandas as pd
 
-from utils import act2str, acts2str, pi2str, best_actions
+from utils import act2str, pi2str, best_actions
 from features import Features
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
@@ -31,6 +31,9 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
         log_dict['mu'].append(np.mean(agent.mu))
         step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 
 
+    if hasattr(agent, 'delta'):
+        log_dict['delta'].append(float(np.round(agent.delta, 4)))
+
     if debug:
         n_actions = len(actions)
         states_positions_gen = env.next_states()
@@ -39,9 +42,12 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
                 state, _ = next(states_positions_gen)
                 log_dict[f'V({state})'].append(agent.V[state])
                 PI = agent.PI(state)
-                log_dict[f'Q({state})'].append(agent.Q[state, :].tolist())
-                log_dict[f'A({state})'].append((agent.Q[state, :] - agent.V[state]).tolist())
+
                 log_dict[f'PI({state})'].append(agent.PI(state))
+
+                if hasattr(agent, 'Q'):
+                    log_dict[f'Q({state})'].append(agent.Q[state, :].tolist())
+                    log_dict[f'A({state})'].append((agent.Q[state, :] - agent.V[state]).tolist())
 
         except StopIteration:
             pass
