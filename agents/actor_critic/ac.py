@@ -31,7 +31,8 @@ class ActorCritic(object):
         self.n_agents = len(env.agents)
         self.n_states = env.n_states
         assert self.n_agents < 3
-        n_features =  self.n_states // self.n_agents
+        # n_features =  self.n_states // self.n_agents
+        n_features =  self.n_states
         self.n_joint_actions = len(env.action_set)
 
         # Parameters
@@ -47,6 +48,8 @@ class ActorCritic(object):
         self.beta = beta
         self.zeta = zeta
         self.reset(seed=0)
+        self.epsilon = 1
+        self.epsilon_step = (1 - 1e-2) / env.max_steps * episodes
 
     @property
     def label(self):
@@ -79,7 +82,11 @@ class ActorCritic(object):
 
 
     def act(self, state):
-        cur = choice(len(self.action_set), p=self.PI(state))
+        # prob = softmax(get(state) @ self.theta.T / self.tau)
+        if rand() < self.epsilon:
+            cur = choice(len(self.action_set))
+        else:
+            cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
@@ -92,9 +99,14 @@ class ActorCritic(object):
         self.omega += self.alpha * self.delta * get(state)
         self.theta[cur] += self.zeta * self.delta * self.psi(state, cur)
         self.step_count += 1
+        self.epsilon -= self.epsilon_step
         
     def psi(self, state, action):
         return (1 - self.PI(state)[action]) * get(state)
+
+    # @property
+    # def tau(self):
+    #     return max(100 * self.epsilon, 1)
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()

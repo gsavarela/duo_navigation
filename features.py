@@ -69,7 +69,8 @@ class Features:
     def set(self, features, n_features=None, n_agents=2, width=2, height=2, **kwargs):
         self.label = features
         self.n_states = (width * height) ** n_agents
-        self.n_features = (width * height) if n_features is None else n_features
+        # self.n_features = (width * height) if n_features is None else n_features
+        self.n_features = self.n_states
         
 
         # THis is here for phi and varphi properties.
@@ -78,21 +79,24 @@ class Features:
         self.height = height
 
 
-        self.features = np.zeros((self.n_features, self.n_features, n_agents), dtype=float)
+        # self.features = np.zeros((self.n_features, self.n_features, n_agents), dtype=float)
+        self.features = np.zeros((self.n_features, self.n_features), dtype=float)
         if 'onehot' in features:
             # this features belong to the state only
-            self.features += np.tile(np.eye(self.n_features), (n_agents, 1, 1)).T
+            # self.features += np.tile(np.eye(self.n_features), (n_agents, 1, 1)).T
+            self.features += np.eye(self.n_features)
 
         if 'uniform' in features:
             # this features belong to the state only
             self.features += uniform(low=-0.5, high=0.5, size=self.features.shape)
-        self.features = l2_norm(self.features)
+        # self.features = l2_norm(self.features)
 
     def get(self, state):
-        pos = state2pos(state)
-        indexes = [coord2index(p) for p in pos]
-        indicators = [self.features[i, :, j] for j, i in enumerate(indexes)]
-        return np.hstack(indicators)
+        # pos = state2pos(state)
+        # indexes = [coord2index(p) for p in pos]
+        # indicators = [self.features[i, :, j] for j, i in enumerate(indexes)]
+        # return np.hstack(indicators)
+        return self.features[state]
         
         
 def l2_norm(features):
