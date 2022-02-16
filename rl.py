@@ -16,6 +16,7 @@ from utils import str2bool
 
 from features import Features
 
+
 from agents import get_agent
 from agents import __all__ as AGENT_TYPES
 
@@ -92,7 +93,7 @@ def print_arguments(opts, timestamp):
 
 def validate_arguments(opts):
     assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient') and opts.episodic) or \
-        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCritic') and not opts.episodic)
+        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCritic', 'ActorCriticTabular') and not opts.episodic)
     # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):

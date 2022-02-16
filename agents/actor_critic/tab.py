@@ -1,8 +1,8 @@
 '''One-step ActorCritic For Continuing tasks. 
 
     * Continuing tasks
-    * Q function approximation.
-    * Linear function approximation
+    * Critic Tabular V function approximation.
+    * Actor boltzman polict
     
     References:
     -----------
@@ -17,11 +17,16 @@ from functools import lru_cache
 import dill
 import numpy as np
 from numpy.random import rand, choice
+# DEBUG ALTERNATIVE 1: Use a new generator
+from numpy.random import Generator
+
+# DEBUG ALTERNATIVE 2: Select actions from POLICY_SET.
+from agents.optimal import POLICY_SET
 
 from features import get, label
 from utils import softmax
 
-class ActorCritic(object):
+class ActorCriticTabular(object):
     def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20):
 
         # The environment
@@ -38,7 +43,8 @@ class ActorCritic(object):
         # Parameters
         # The feature are state-value function features, i.e,
         # the generalize w.r.t the actions.
-        self.omega = np.zeros(n_features)
+        # self.omega = np.zeros(n_features)
+        self.V = np.zeros(self.n_states)
         self.theta = np.zeros((len(self.action_set), n_features))
         self.mu = 0
 
@@ -47,28 +53,18 @@ class ActorCritic(object):
         self.alpha = alpha
         self.beta = beta
         self.zeta = zeta
+        self.reset(seed=0)
         self.explore = False
         self.epsilon = 1.0
         self.epsilon_step = float(2 * (1 - 1e-2) / env.max_steps * episodes)
-        self.reset(seed=0)
 
     @property
     def label(self):
-        return f'ActorCritic ({label()})'
+        return f'ActorCriticTabular ({label()})'
 
     @property
     def task(self):
         return 'continuing'
-
-    @property
-    def V(self):
-        return self._cache_V(self.step_count)
-    
-    @lru_cache(maxsize=1)
-    def _cache_V(self, step_count):
-        return np.array([
-            get(state) @ self.omega for state in range(self.n_states)
-        ])
 
     def PI(self, state):
         return self._cache_PIS(state, self.step_count).tolist() 
@@ -83,7 +79,7 @@ class ActorCritic(object):
 
     def act(self, state):
         if self.explore and rand() < self.epsilon:
-            cur = choice(len(self.action_set))
+            cur = choice(len(self.action_set), p=self.PI(state))
         cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
 
@@ -91,11 +87,11 @@ class ActorCritic(object):
         cur = self.action_set.index(actions)
 
         self.delta = np.mean(next_rewards) - self.mu  + \
-                    (get(next_state) - get(state)) @ self.omega
+                    self.V[next_state] - self.V[state]
 
         self.delta = np.clip(self.delta, -1, 1)
         self.mu += self.beta * self.delta
-        self.omega += self.alpha * self.delta * get(state)
+        self.V[state] += self.alpha * self.delta
         self.theta[cur] += self.zeta * self.delta * self.psi(state, cur)
         self.step_count += 1
         self.epsilon = float(max(0, self.epsilon - self.epsilon_step))
@@ -103,6 +99,7 @@ class ActorCritic(object):
         
     def psi(self, state, action):
         return (1 - self.PI(state)[action]) * get(state)
+
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
