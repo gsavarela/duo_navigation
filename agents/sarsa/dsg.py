@@ -26,7 +26,7 @@ class SARSADifferentialSemiGradient(object):
         self.n_agents = len(env.agents)
         self.n_states = env.n_states
         assert self.n_agents < 3
-        n_features =  self.n_states // self.n_agents
+        n_features =  self.n_states
         self.n_joint_actions = len(env.action_set)
 
         # Parameters

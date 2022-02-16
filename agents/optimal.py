@@ -16,6 +16,25 @@ from decorators import int2act
 from features import Features
 
 
+# OPTIMAL POLICY_SET: state --> actions
+POLICY_SET = {
+    0: (0,),
+    1: (0, 3, 8, 11, 12, 15), 
+    2: (0, 11), 
+    3: (3,), 
+    4: (0, 2, 3, 12, 14, 15), 
+    5: (0, 3, 11, 15), 
+    6: (0, 1, 2, 3, 12, 13, 14, 15,), 
+    7: (0, 1, 2, 3, 12, 13, 14, 15,), 
+    8: (0, 3),
+    9: (0, 3, 4, 7, 8, 11, 12, 15),
+    10: (0, 3, 12, 15),
+    11: (3, 15), 
+    12: (12,),
+    13: (0, 3, 4, 7, 12, 15),
+    14: (12, 15),
+    15: (15,),
+}
 class Optimal:
 
     def __init__(self, env, alpha=0.2, decay=True):

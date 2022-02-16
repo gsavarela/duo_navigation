@@ -10,7 +10,7 @@ class SARSATabular(object):
 
         References:
         -----------
-        * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 133).
+        * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 130).
     ''' 
     def __init__(self, env, alpha=0.2, gamma=0.98, episodes=1000):
 
