@@ -352,9 +352,10 @@ def display_ac(env, agent):
                 state, pos = next(states_positions_gen)
 
                 max_action = np.argmax(agent.Q[state, :])
-                actions_log = act2str2(action_set[max_action])
 
-                best_log = ', '.join([act2str2(bact(p)) for p in pos])
+                actions_log = act2str2([max_action])
+                actions_optimal = bact(pos)
+                best_log = act2str2(actions_optimal)
                 pos_log = ', '.join([pos2str(p) for p in pos])
                 msg = (f'\t{state}'
                        f'\t{agent.V[state]:0.2f}'
