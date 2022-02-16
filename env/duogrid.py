@@ -62,7 +62,7 @@ class Grid(mult.Grid):
         Get a subset of the grid
         """
 
-        grid = StackableGrid(width, height)
+        grid = Grid(width, height)
 
         for j in range(0, height):
             for i in range(0, width):
@@ -115,7 +115,7 @@ class Grid(mult.Grid):
         Rotate the grid to the left (counter-clockwise)
         """
 
-        grid = StackableGrid(self.height, self.width)
+        grid = Grid(self.height, self.width)
 
         for i in range(self.width):
             for j in range(self.height):
