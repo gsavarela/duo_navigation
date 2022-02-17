@@ -1,6 +1,6 @@
 import argparse
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, Counter
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -156,6 +156,7 @@ def main(flags, timestamp):
     agent.save_checkpoints(experiment_dir, str(episodes))
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
+    print('Visited states', Counter(log['state']))
 
     df = display_policy(env, agent)
     df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')

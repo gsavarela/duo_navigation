@@ -47,9 +47,9 @@ class ActorCritic(object):
         self.alpha = alpha
         self.beta = beta
         self.zeta = zeta
-        self.explore = False
+        self.explore = True
         self.epsilon = 1.0
-        self.epsilon_step = float(2 * (1 - 1e-2) / env.max_steps * episodes)
+        self.epsilon_step = float(1.1 / env.max_steps * episodes)
         self.reset(seed=0)
 
     @property
@@ -84,7 +84,8 @@ class ActorCritic(object):
     def act(self, state):
         if self.explore and rand() < self.epsilon:
             cur = choice(len(self.action_set))
-        cur = choice(len(self.action_set), p=self.PI(state))
+        else:
+            cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
@@ -96,7 +97,13 @@ class ActorCritic(object):
         self.delta = np.clip(self.delta, -1, 1)
         self.mu += self.beta * self.delta
         self.omega += self.alpha * self.delta * get(state)
-        self.theta[cur] += self.zeta * self.delta * self.psi(state, cur)
+        if cur == 0 and state == 0 and self.mu > 0:
+            x3 = self.PI(state)[cur]
+        self.theta[cur][:] += self.zeta * self.delta * self.psi(state, cur)
+        if cur == 0 and state == 0 and self.mu > 0:
+            y3 = softmax(get(state) @ self.theta.T)[cur]
+            print(x3, y3, y3 - x3)
+            import ipdb; ipdb.set_trace()
         self.step_count += 1
         self.epsilon = float(max(0, self.epsilon - self.epsilon_step))
 

@@ -43,11 +43,8 @@ def snapshot_plot(snapshot_log, img_path):
 
     
     snapshot_path = img_path / 'snapshot.json'
-    try:
-        with snapshot_path.open('w') as f:
-            json.dump(snapshot_log, f)
-    except TypeError:
-        import ipdb; ipdb.set_trace()
+    with snapshot_path.open('w') as f:
+        json.dump(snapshot_log, f)
 # use this only for continuing tasks.
 # episodes is a series with the episode numbers
 def globally_averaged_plot(mus, img_path, episodes):
