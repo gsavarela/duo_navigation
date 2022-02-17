@@ -6,6 +6,7 @@ import pandas as pd
 from utils import act2str, pi2str, best_actions
 from features import Features
 
+running_sum = 0 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
     if 'task' not in log_dict: log_dict['task'] = agent.task
@@ -17,11 +18,15 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
     log_dict['reward'].append(np.mean(tr[2]))
     log_dict['step_count'].append(agent.step_count)
     log_dict['episode'].append(episode)
+
+    global running_sum
+    running_sum += log_dict['reward'][-1]
+    running_avg = running_sum / agent.step_count 
     
 
     step_log = (f'TRAIN: Episode: {episode}\t'
                 f'Steps: {env.step_count}\t'
-                f'Average Reward: {np.mean(log_dict["reward"]):0.4f}\t')
+                f'Average Reward: {running_avg:0.4f}\t')
     
 
     if hasattr(agent, 'epsilon'):

@@ -1,13 +1,38 @@
 import numpy as np
 from numpy.random import uniform
-from utils import action_set, state2pos, coord2index
+from utils import action_set, state2pos, coord2index, generate_transitions_from_moves
 from deprecated import deprecated
 # TODO: extend this to accept new parameters,
 # features as a singleton pattern
 
-# TODO: Accepts only state features
-def get(state):
-    return Features().get(state)
+
+def get_sa(state, actions=None):
+    '''
+    Parameters:
+    -----------
+    * state: int
+    * actions: None, int, or list
+
+    Returns:
+    -------
+    * features: np.array or matrix
+    '''
+    return Features().get_state_actions(state, actions=actions)
+
+def get_s(state=None):
+    '''
+    Parameters:
+    -----------
+    * state: int
+    if None return all states.
+
+    Returns:
+    -------
+    * features: np.array or matrix
+    '''
+    return Features().get_state(state)
+get = get_s
+
 
 def label():
     return Features().label
@@ -42,7 +67,10 @@ class Features:
             self.n_varphi = (self.n_states, N_ACTIONS, N_AGENTS, self.n_actor)
             self.varphi = uniform(size=self.n_varphi) 
             # self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
-
+            # tr: state, action, next_state
+            self.transitions = {
+                tuple(tr[:2]): tr[-1]for tr in generate_transitions_from_moves()
+            }
             
         return cls._instance
 
@@ -78,9 +106,10 @@ class Features:
         self.height = height
 
 
-        rank = 0
+        column_rank = 0
+        row_rank = 0
         # Change this for tests
-        while rank != self.n_states:
+        while column_rank != self.n_states and row_rank != self.n_features:
             self.features = np.zeros((self.n_features, self.n_features), dtype=float)
             if 'onehot' in features:
                 # this features belong to the state only
@@ -91,11 +120,24 @@ class Features:
                 # this features belong to the state only
                 self.features += uniform(size=self.features.shape)
             self.features = l2_norm(self.features)
-            rank = np.linalg.matrix_rank(self.features)
+            column_rank = np.linalg.matrix_rank(self.features)
+            row_rank = np.linalg.matrix_rank(self.features.T)
 
-    def get(self, state):
+    def get_state_actions(self, state, actions=None):
+        tr = self.transitions 
+        # actions = j return the state after action j is taken (use: update)
+        if isinstance(actions, int):
+            res = self.features[tr[(state, actions)]]
+        # actions is array-like the states[0, ...j..|S|] after actions[0,.. j.. |A|]
+        if actions is None:
+            next_states = [tr[(state, j)] for j in range(len(self.action_set))]
+            res = self.features[next_states, :]
+        return res
+
+    def get_state(self, state=None):
+        if state is None: return self.features
         return self.features[state]
-        
+
         
 def l2_norm(features):
     # get original shape

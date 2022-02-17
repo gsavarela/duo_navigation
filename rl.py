@@ -1,6 +1,6 @@
 import argparse
 from datetime import datetime
-from collections import defaultdict
+from collections import defaultdict, Counter
 from copy import deepcopy
 import json
 from pathlib import Path
@@ -94,7 +94,6 @@ def print_arguments(opts, timestamp):
 def validate_arguments(opts):
     assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient') and opts.episodic) or \
         (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCritic', 'ActorCriticTabular') and not opts.episodic)
-    # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):
 
@@ -153,9 +152,11 @@ def main(flags, timestamp):
             if done:
                 break
 
-    agent.save_checkpoints(experiment_dir, str(episodes))
+        agent.save_checkpoints(experiment_dir, str(episode))
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
+    
+    print('Visits to each state:', Counter(log['state']))
 
     df = display_policy(env, agent)
     df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
