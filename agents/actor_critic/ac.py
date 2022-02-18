@@ -8,8 +8,6 @@
     -----------
     * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
     * Zhang, et al. 2018 `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
-
-    
 ''' 
 from pathlib import Path
 from functools import lru_cache
@@ -49,7 +47,7 @@ class ActorCritic(object):
         self.zeta = zeta
         self.explore = True
         self.epsilon = 1.0
-        self.epsilon_step = float(1.1 / env.max_steps * episodes)
+        self.epsilon_step = float(1.1 / (env.max_steps * episodes))
         self.reset(seed=0)
 
     @property
@@ -97,13 +95,13 @@ class ActorCritic(object):
         self.delta = np.clip(self.delta, -1, 1)
         self.mu += self.beta * self.delta
         self.omega += self.alpha * self.delta * get(state)
-        if cur == 0 and state == 0 and self.mu > 0:
-            x3 = self.PI(state)[cur]
+        # if cur == 0 and state == 0 and self.mu > 0:
+        #     x3 = self.PI(state)[cur]
         self.theta[cur][:] += self.zeta * self.delta * self.psi(state, cur)
-        if cur == 0 and state == 0 and self.mu > 0:
-            y3 = softmax(get(state) @ self.theta.T)[cur]
-            print(x3, y3, y3 - x3)
-            import ipdb; ipdb.set_trace()
+        # if cur == 0 and state == 0 and self.mu > 0:
+        #     y3 = softmax(get(state) @ self.theta.T)[cur]
+        #     print(x3, y3, y3 - x3)
+        #     import ipdb; ipdb.set_trace()
         self.step_count += 1
         self.epsilon = float(max(0, self.epsilon - self.epsilon_step))
 
