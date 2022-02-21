@@ -47,7 +47,7 @@ class ActorCritic(object):
         self.zeta = zeta
         self.explore = True
         self.epsilon = 1.0
-        self.epsilon_step = float((1.1 - 1e-2) / (env.max_steps * episodes))
+        self.epsilon_step = float(1.1  * (1 - 1e-1) / (env.max_steps * episodes))
         self.reset(seed=0)
 
     @property
@@ -60,7 +60,7 @@ class ActorCritic(object):
 
     @property
     def tau(self):
-        return 100 * self.epsilon if self.explore else 1
+        return 10 * self.epsilon if self.explore else 1
 
     @property
     def V(self):
@@ -77,17 +77,13 @@ class ActorCritic(object):
 
     @lru_cache(maxsize=1)
     def _cache_PIS(self, state, step_count):
-        return softmax(get(state) @ self.theta.T)
+        return softmax(get(state) @ self.theta.T / self.tau)
 
     def reset(self, seed=0):
         np.random.seed(seed)
 
     def act(self, state):
-        if self.explore:
-            prob = softmax((get(state) @ self.theta.T) / self.tau)
-        else:
-            prob = self.PI(state)
-        cur = choice(len(self.action_set), p=prob)
+        cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
@@ -101,7 +97,7 @@ class ActorCritic(object):
         self.omega += self.alpha * self.delta * get(state)
         self.theta[cur][:] += self.zeta * self.delta * self.psi(state, cur)
         self.step_count += 1
-        self.epsilon = float(max(1e-2, self.epsilon - self.epsilon_step))
+        self.epsilon = float(max(1e-1, self.epsilon - self.epsilon_step))
 
         
     def psi(self, state, action):
