@@ -7,8 +7,8 @@ FIGURE_Y = 4.0
 def probabilities_vs_value_plot(snapshot, img_path):
     
     # Training 2-axes plot of episode length and vs episilon.
-    V = np.array(snapshot['V(12)'])
-    P, e  = zip(*[(p[12], p[15]) for p in snapshot['PI(12)']])
+    V = np.array(snapshot['V(3)'])
+    P, e  = zip(*[(p[3], p[15]) for p in snapshot['PI(3)']])
     Y = np.array([P, e])
     label = snapshot['label']
     X = np.linspace(1, V.shape[0], V.shape[0])
@@ -16,7 +16,7 @@ def probabilities_vs_value_plot(snapshot, img_path):
     fig = plt.figure()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-    suptitle = 'Prob. vs. V(12)' 
+    suptitle = 'Prob. vs. V(3)' 
     if label is not None:
         suptitle += f': {label}'
 
@@ -33,7 +33,7 @@ def probabilities_vs_value_plot(snapshot, img_path):
     fig, ax = plt.subplots()
 
     # add first line to plot
-    labels = ('Pr.(s=12, a=12)','Pr.(s=12, a=15)')
+    labels = ('Pr.(s=3, a=3)','Pr.(s=3, a=15)')
     pl1 = ax.plot(X, Y.T, label=labels)
 
     # add x-axis label
@@ -46,7 +46,7 @@ def probabilities_vs_value_plot(snapshot, img_path):
     ax2 = ax.twinx()
 
     # add second line to plot
-    pl2 = ax2.plot(X, V, color=c2, label='V(12)')
+    pl2 = ax2.plot(X, V, color=c2, label='V(3)')
 
     # add second y-axis label
     ax2.set_ylabel(y2_label, color=c2)
@@ -61,16 +61,39 @@ def probabilities_vs_value_plot(snapshot, img_path):
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.close()
 
-# After an update in the right direction V(12; w) should grow.
+def delta_plot(snapshot, img_path):
+    
+    Y = np.array(snapshot['delta'])
+    
+
+    n_steps = Y.shape[0]
+    X = np.linspace(1, n_steps, n_steps)
+
+    fig = plt.figure()
+    fig.set_size_inches(FIGURE_X, FIGURE_Y)
+
+
+    plt.plot(X, Y, label='delta')
+    plt.xlabel('Time')
+    plt.ylabel('Delta')
+    plt.legend(loc=4)
+
+    file_name = img_path / 'delta.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = img_path / 'delta.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+# After an update in the right direction V(3; w) should grow.
 def critic_update_error_plot(snapshot, img_path):
     
-    V12 = np.array(snapshot['V(12)'])
-    X = np.linspace(1, len(V12), len(V12))
+    V3 = np.array(snapshot['V(3)'])
+    X = np.linspace(1, len(V3), len(V3))
     
-    # indexes: taking action 12 on state 12 --> go to goal.
-    index = np.array(snapshot['state']) == 12 
-    optindex = np.array(snapshot['action']) == 12
-    subindex = np.array(snapshot['action']) != 12
+    # indexes: taking action 3 on state 3 --> go to goal.
+    index = np.array(snapshot['state']) == 3 
+    optindex = np.array(snapshot['action']) == 3
+    subindex = np.array(snapshot['action']) != 3
     mu = np.array(snapshot['mu'])
 
 
@@ -85,12 +108,12 @@ def critic_update_error_plot(snapshot, img_path):
         fig, ax = plt.subplots()
         fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-        suptitle = 'Critic Updates on V(12)' 
+        suptitle = 'Critic Updates on V(3)' 
         if label is not None:
             suptitle += f': {label}'
         
         filter_index  = index & update_index
-        Yi = V12[filter_index] - V12[np.roll(filter_index, shift=1)]
+        Yi = V3[filter_index] - V3[np.roll(filter_index, shift=1)]
         delta_mu = mu[filter_index] - mu[np.roll(filter_index, shift=1)]
         Xi = np.linspace(1, len(Yi), len(Yi))
 
@@ -138,26 +161,26 @@ def actor_update_gains_plot(snapshot, img_path):
 
     # Are those updates in the wrong direction happening because other
     # states are visited?
-    PI12 = np.array(snapshot['PI(12)'])
+    PI3 = np.array(snapshot['PI(3)'])
     state = np.array(snapshot['state'])
     delta_success = np.zeros_like(state)
     n_steps = len(state)
 
-    pi12_12 = PI12[:, 12]
-    delta_success  = _diff(pi12_12)
+    pi3_3 = PI3[:, 3]
+    delta_success  = _diff(pi3_3)
     X = np.linspace(1, n_steps, n_steps)
     
-    Y = np.cumsum(np.where(state == 12, delta_success, np.zeros_like(state)))
+    Y = np.cumsum(np.where(state == 3, delta_success, np.zeros_like(state)))
 
     label = snapshot['label']
     fig, ax = plt.subplots()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-    suptitle = 'Actor Update-Gains (st=12)' 
+    suptitle = 'Actor Update-Gains (st=3)' 
     if label is not None:
         suptitle += f': {label}'
     x_label = 'Training timesteps'
-    y_label = 'Update Gains Pr(st=12, at=12)'
+    y_label = 'Update Gains Pr(st=3, at=3)'
 
     # add first line to plot
     ax.plot(X, Y, c='b')
@@ -172,10 +195,10 @@ def actor_update_gains_plot(snapshot, img_path):
     ax2 = ax.twinx()
 
     # add second line to plot
-    ax2.plot(X, pi12_12, c='g')
+    ax2.plot(X, pi3_3, c='g')
 
     # add second y-axis label
-    y_label = 'Pr(s.=12, a=(up, right))'
+    y_label = 'Pr(s.=3, a=(up, right))'
     ax2.set_ylabel(y_label, c='g')
 
     plt.suptitle(suptitle)
@@ -192,25 +215,25 @@ def actor_generalization_gains_plot(snapshot, img_path):
     # Are those updates in the wrong direction happening because other
     # states are visited?
 
-    PI12 = np.array(snapshot['PI(12)'])
+    PI3 = np.array(snapshot['PI(3)'])
     # We want only the delta
-    Y = PI12[:, 12]
-    gY = _diff(PI12[:, 12])
+    Y = PI3[:, 3]
+    gY = _diff(PI3[:, 3])
     state = np.array(snapshot['state'])
-    n_steps = PI12.shape[0]
+    n_steps = PI3.shape[0]
     X = np.linspace(1, n_steps, n_steps)
     
-    gY = np.cumsum(np.where(state != 12, gY, np.zeros_like(state)))
+    gY = np.cumsum(np.where(state != 3, gY, np.zeros_like(state)))
 
     label = snapshot['label']
     fig, ax = plt.subplots()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-    suptitle = 'Actor Gen.-Gains (st!= 12)' 
+    suptitle = 'Actor Gen.-Gains (st!= 3)' 
     if label is not None:
         suptitle += f': {label}'
     x_label = 'Training timesteps'
-    y_label = 'Gen.-Gains Pr(s=12, at=12) when st!=12'
+    y_label = 'Gen.-Gains Pr(s=3, at=3) when st!=3'
 
     # add first line to plot
     ax.plot(X, gY, c='b')
@@ -228,7 +251,7 @@ def actor_generalization_gains_plot(snapshot, img_path):
     ax2.plot(X, Y, c='g')
 
     # add second y-axis label
-    y_label = 'Pr(s.=12, a=(up, right))'
+    y_label = 'Pr(s.=3, a=(up, right))'
     ax2.set_ylabel(y_label, color='g')
 
     plt.suptitle(suptitle)
@@ -245,15 +268,19 @@ if __name__ == '__main__':
     import json
     from pathlib import Path
 
-    path = Path('data/AC-CHALLENGE/known_to_work/onehot')
+    # path = Path('data/AC-CHALLENGE/known_to_work/onehot')
     # path = Path('data/AC-CHALLENGE/puzzle')
 
-    # path = Path('data/20220214112104/')
+    # path = Path('data/AC-CHALLENGE/puzzle_with_boltzmann')
+    path = Path('data/AC-CHALLENGE/puzzle_untrained')
+
+    # path = Path('data/2022021413104/')
     snapshot_path = path / 'snapshot.json'
     with snapshot_path.open('r') as f:
         snapshot = json.load(f)
 
-    probabilities_vs_value_plot(snapshot, path)
+    # probabilities_vs_value_plot(snapshot, path)
     # critic_update_error_plot(snapshot, path)
-    actor_update_gains_plot(snapshot, path)
-    actor_generalization_gains_plot(snapshot, path)
+    # actor_update_gains_plot(snapshot, path)
+    # actor_generalization_gains_plot(snapshot, path)
+    delta_plot(snapshot, path)
