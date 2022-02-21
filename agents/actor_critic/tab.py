@@ -17,11 +17,6 @@ from functools import lru_cache
 import dill
 import numpy as np
 from numpy.random import rand, choice
-# DEBUG ALTERNATIVE 1: Use a new generator
-from numpy.random import Generator
-
-# DEBUG ALTERNATIVE 2: Select actions from POLICY_SET.
-from agents.optimal import POLICY_SET
 
 from features import get, label
 from utils import softmax
@@ -54,9 +49,9 @@ class ActorCriticTabular(object):
         self.beta = beta
         self.zeta = zeta
         self.reset(seed=0)
-        self.explore = False
+        self.explore = True
         self.epsilon = 1.0
-        self.epsilon_step = float(2 * (1 - 1e-2) / env.max_steps * episodes)
+        self.epsilon_step = float((1.1 - 1e-2) / (env.max_steps * episodes))
 
     @property
     def label(self):
@@ -76,12 +71,20 @@ class ActorCriticTabular(object):
     def reset(self, seed=0):
         np.random.seed(seed)
 
-
     def act(self, state):
-        if self.explore and rand() < self.epsilon:
-            cur = choice(len(self.action_set), p=self.PI(state))
-        cur = choice(len(self.action_set), p=self.PI(state))
+        if self.explore:
+            prob = softmax((get(state) @ self.theta.T) / self.tau)
+        else:
+            prob = self.PI(state)
+        try:
+            cur = choice(len(self.action_set), p=prob)
+        except Exception:
+            import ipdb; ipdb.set_trace()
         return self.action_set[cur]
+
+    @property
+    def tau(self):
+        return 100 * self.epsilon if self.explore else 1
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
         cur = self.action_set.index(actions)
@@ -94,11 +97,11 @@ class ActorCriticTabular(object):
         self.V[state] += self.alpha * self.delta
         self.theta[cur] += self.zeta * self.delta * self.psi(state, cur)
         self.step_count += 1
-        self.epsilon = float(max(0, self.epsilon - self.epsilon_step))
+        self.epsilon = float(max(1e-2, self.epsilon - self.epsilon_step))
 
         
     def psi(self, state, action):
-        return (1 - self.PI(state)[action]) * get(state)
+        return (1 - self.PI(state)[action]) * (get(state) / self.tau)
 
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):

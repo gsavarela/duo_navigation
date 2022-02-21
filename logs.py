@@ -27,6 +27,10 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
     if hasattr(agent, 'epsilon'):
         log_dict['epsilon'].append(np.round(agent.epsilon, 4))
 
+    if hasattr(agent, 'tau'):
+        log_dict['tau'].append(np.round(agent.tau, 4))
+        step_log += f'tau: {log_dict["tau"][-1]:0.4f}\t'
+
     if hasattr(agent, 'mu'):
         log_dict['mu'].append(np.mean(agent.mu))
         step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 

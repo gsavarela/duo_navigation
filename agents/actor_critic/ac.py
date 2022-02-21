@@ -47,7 +47,7 @@ class ActorCritic(object):
         self.zeta = zeta
         self.explore = True
         self.epsilon = 1.0
-        self.epsilon_step = float(1.1 / (env.max_steps * episodes))
+        self.epsilon_step = float((1.1 - 1e-2) / (env.max_steps * episodes))
         self.reset(seed=0)
 
     @property
@@ -57,6 +57,10 @@ class ActorCritic(object):
     @property
     def task(self):
         return 'continuing'
+
+    @property
+    def tau(self):
+        return 100 * self.epsilon if self.explore else 1
 
     @property
     def V(self):
@@ -78,12 +82,12 @@ class ActorCritic(object):
     def reset(self, seed=0):
         np.random.seed(seed)
 
-
     def act(self, state):
-        if self.explore and rand() < self.epsilon:
-            cur = choice(len(self.action_set))
+        if self.explore:
+            prob = softmax((get(state) @ self.theta.T) / self.tau)
         else:
-            cur = choice(len(self.action_set), p=self.PI(state))
+            prob = self.PI(state)
+        cur = choice(len(self.action_set), p=prob)
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
@@ -95,19 +99,13 @@ class ActorCritic(object):
         self.delta = np.clip(self.delta, -1, 1)
         self.mu += self.beta * self.delta
         self.omega += self.alpha * self.delta * get(state)
-        # if cur == 0 and state == 0 and self.mu > 0:
-        #     x3 = self.PI(state)[cur]
         self.theta[cur][:] += self.zeta * self.delta * self.psi(state, cur)
-        # if cur == 0 and state == 0 and self.mu > 0:
-        #     y3 = softmax(get(state) @ self.theta.T)[cur]
-        #     print(x3, y3, y3 - x3)
-        #     import ipdb; ipdb.set_trace()
         self.step_count += 1
-        self.epsilon = float(max(0, self.epsilon - self.epsilon_step))
+        self.epsilon = float(max(1e-2, self.epsilon - self.epsilon_step))
 
         
     def psi(self, state, action):
-        return (1 - self.PI(state)[action]) * get(state)
+        return (1 - self.PI(state)[action]) * (get(state) / self.tau)
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
