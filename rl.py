@@ -84,6 +84,9 @@ parser.add_argument('-r', '--random_starts', default=True, type=str2bool,
 parser.add_argument('-R', '--render', default=False, type=str2bool,
         help='''Shows the grid during the training.''')
 
+parser.add_argument('-x', '--explore', default=True, type=str2bool,
+        help='''Use temperature for continuing tasks or epsilon-greedy.''')
+
 def print_arguments(opts, timestamp):
 
     print('Arguments Duo Navigation Game:')
@@ -154,6 +157,7 @@ def main(flags, timestamp):
                 break
 
     agent.save_checkpoints(experiment_dir, str(episodes))
+
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
     print('Visited states', Counter(log['state']))
@@ -161,9 +165,9 @@ def main(flags, timestamp):
     df = display_policy(env, agent)
     df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
     
-
     validation_rewards = []
     state = env.reset()
+    agent.explore = False
     for _ in range(100):
         if render:
            env.render(mode='human', highlight=True)

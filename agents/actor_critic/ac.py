@@ -20,7 +20,7 @@ from features import get, label
 from utils import softmax
 
 class ActorCritic(object):
-    def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20):
+    def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20, explore=False):
 
         # The environment
         self.action_set = env.action_set
@@ -45,7 +45,7 @@ class ActorCritic(object):
         self.alpha = alpha
         self.beta = beta
         self.zeta = zeta
-        self.explore = True
+        self.explore = explore
         self.epsilon = 1.0
         self.epsilon_step = float(1.1  * (1 - 1e-1) / (env.max_steps * episodes))
         self.reset(seed=0)
@@ -60,7 +60,7 @@ class ActorCritic(object):
 
     @property
     def tau(self):
-        return 10 * self.epsilon if self.explore else 1
+        return float(10 * self.epsilon if self.explore else 1.0)
 
     @property
     def V(self):
