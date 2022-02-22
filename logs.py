@@ -1,10 +1,8 @@
-from collections import defaultdict
-import re
+from pathlib import Path
+from collections import Counter
+
 import numpy as np
 import pandas as pd
-
-from utils import act2str, pi2str, best_actions
-from features import Features
 
 def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
 
@@ -57,3 +55,20 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
             pass
 
     return step_log
+
+def snapshot_state_actions_log(log, log_dir=None):
+    sa = list(zip(log['state'], log['action']))
+
+    # TODO: Ideal build a dataframe from dictionary
+    sac = [k + (v,) for k, v in Counter(sa).items()]
+
+    df = pd.DataFrame.from_records(sac,columns=['state', 'action', 'count']). \
+            pivot(index='state', columns='action', values='count')
+
+    sa_path = Path(log_dir) / 'state_action.csv'
+    if log_dir is not None:
+        df.to_csv(sa_path)
+    return df
+
+ 
+

@@ -11,7 +11,7 @@ import numpy as np
 
 from plots import (globally_averaged_plot, advantages_plot,
         q_values_plot, display_policy, validation_plot, snapshot_plot)
-from logs import snapshot_log
+from logs import snapshot_log, snapshot_state_actions_log
 from utils import str2bool
 
 from features import Features
@@ -160,7 +160,12 @@ def main(flags, timestamp):
 
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
-    print('Visited states', Counter(log['state']))
+
+    state_counter = Counter(log['state']) 
+    print('Visited states', state_counter)
+    df = snapshot_state_actions_log(log, experiment_dir)
+    print(df)
+    
 
     df = display_policy(env, agent)
     df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
