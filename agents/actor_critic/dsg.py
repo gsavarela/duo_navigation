@@ -1,7 +1,7 @@
 '''One-step ActorCritic For Continuing tasks. 
 
     * Continuing tasks
-    * Q function approximation.
+    * V function approximation.
     * Linear function approximation
     
     References:
@@ -19,7 +19,7 @@ from numpy.random import rand, choice
 from features import get, label
 from utils import softmax
 
-class ActorCritic(object):
+class ActorCriticDifferentialSemiGradient(object):
     def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20, explore=False):
 
         # The environment
