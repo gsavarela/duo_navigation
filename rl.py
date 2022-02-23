@@ -78,8 +78,8 @@ parser.add_argument('-S', '--seed', default=47, type=int,
         help='''An integer to be used as a random seed.''')
 
 parser.add_argument('-r', '--random_starts', default=True, type=str2bool,
-        help='''The number of agents on the grid:
-                Should be either `1` or `2`. Use `1` for debugging.''')
+        help='''Regulates hte initial position of agents on the grid:
+                Should be either `0` or `1`. Use `0` for debugging.''')
 
 parser.add_argument('-R', '--render', default=False, type=str2bool,
         help='''Shows the grid during the training.''')
