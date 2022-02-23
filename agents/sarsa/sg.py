@@ -19,7 +19,7 @@ from utils import i2q
 from features import get, label
 
 class SARSASemiGradient(object):
-    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=20):
+    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=20, **kwargs):
 
         # The environment
         self.action_set = env.action_set

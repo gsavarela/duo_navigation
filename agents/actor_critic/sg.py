@@ -20,7 +20,7 @@ from features import get, label
 from utils import softmax
 
 class ActorCriticSemiGradient(object):
-    def __init__(self, env, alpha=0.3, beta=0.2, gamma=0.98 ,episodes=20, explore=False):
+    def __init__(self, env, alpha=0.3, beta=0.2, gamma=0.98 ,episodes=20, explore=False, decay=True):
 
         # The environment
         self.action_set = env.action_set
@@ -41,8 +41,10 @@ class ActorCriticSemiGradient(object):
 
         # Loop control
         self.step_count = 0
-        self.alpha = alpha
-        self.beta = beta
+        self.alpha = 1 if decay else alpha
+        self.beta = 1 if decay else beta
+        self.decay = decay
+        self.decay_count = 1
         self.gamma = gamma
         self.explore = explore
         self.epsilon = 1.0
@@ -55,6 +57,11 @@ class ActorCriticSemiGradient(object):
             np.random.seed(seed)
         else:
             self.epsilon = max(1e-1, self.epsilon - self.epsilon_step)
+            # For each episode
+            if self.decay:
+                self.decay_count += 1
+                self.alpha = np.power(self.decay_count, -0.85)
+                self.beta = np.power(self.decay_count, -0.65)
 
     @property
     def label(self):
@@ -101,6 +108,7 @@ class ActorCriticSemiGradient(object):
         self.delta = np.clip(self.delta, -1, 1)
         self.omega += self.alpha * self.delta * get(state)
         self.theta[cur][:] += self.beta *  self.discount * self.delta * self.psi(state, cur)
+
         self.discount *= self.gamma
         self.step_count += 1
 
