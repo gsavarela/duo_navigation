@@ -141,7 +141,7 @@ def main(flags, timestamp):
             if render:
                 env.render(mode='human', highlight=True)
                 time.sleep(0.1)
-            next_state, next_reward, done, _ = env.step(actions)
+            next_state, next_reward, done, timeout = env.step(actions)
 
             next_actions = agent.act(next_state)
             tr = [state, actions, next_reward, next_state, next_actions]
@@ -153,7 +153,7 @@ def main(flags, timestamp):
             print(step_log)
             state = next_state 
             actions = next_actions
-            if done:
+            if done or timeout:
                 break
 
     agent.save_checkpoints(experiment_dir, str(episodes))

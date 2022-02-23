@@ -93,7 +93,7 @@ class ActorCriticSemiGradient(object):
         cur = self.action_set.index(actions)
 
         if done:
-            self.delta = np.mean(next_rewards) + (get(state) @ self.omega)
+            self.delta = np.mean(next_rewards) - (get(state) @ self.omega)
         else:
             self.delta = np.mean(next_rewards) + \
                         ((self.gamma * get(next_state)) - get(state)) @ self.omega
