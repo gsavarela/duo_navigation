@@ -15,6 +15,8 @@ from functools import lru_cache
 import dill
 import numpy as np
 from numpy.random import rand, choice
+# import torch as th
+# import torch.nn.functional as F
 
 from features import get, label
 from utils import softmax
@@ -30,14 +32,17 @@ class ActorCriticSemiGradient(object):
         self.n_states = env.n_states
         assert self.n_agents < 3
         # n_features =  self.n_states // self.n_agents
+        # n_features =  self.n_states + 1
         n_features =  self.n_states
         self.n_joint_actions = len(env.action_set)
-
+        
         # Parameters
         # The feature are state-value function features, i.e,
         # the generalize w.r.t the actions.
         self.omega = np.zeros(n_features)
         self.theta = np.zeros((len(self.action_set), n_features))
+        # self.theta = th.from_numpy(theta).float()
+        # self.theta.requires_grad = True
 
         # Loop control
         self.step_count = 0
@@ -53,6 +58,7 @@ class ActorCriticSemiGradient(object):
 
     def reset(self, seed=0, first=False):
         self.discount = 1.0
+
         if first:
             np.random.seed(seed)
         else:
@@ -90,7 +96,7 @@ class ActorCriticSemiGradient(object):
 
     @lru_cache(maxsize=1)
     def _cache_PIS(self, state, step_count):
-        return softmax(get(state) @ self.theta.T / self.tau)
+        return softmax(self.theta @ (get(state)/ self.tau))
 
     def act(self, state):
         cur = choice(len(self.action_set), p=self.PI(state))
@@ -107,14 +113,43 @@ class ActorCriticSemiGradient(object):
 
         self.delta = np.clip(self.delta, -1, 1)
         self.omega += self.alpha * self.delta * get(state)
-        self.theta[cur][:] += self.beta *  self.discount * self.delta * self.psi(state, cur)
+
+        # Critic update
+        # psi = self.psi(state, cur)
+        # self.theta[cur] += self.beta *  self.discount * self.delta * self.psi(state, cur)
+        self.theta += self.beta *  self.discount * self.delta * self.psi(state, cur)
 
         self.discount *= self.gamma
         self.step_count += 1
 
         
+    # def psi(self, state, action):
+    #     x = th.tensor(get(state).tolist(), requires_grad=False, dtype=float)
+    #     # x = th.from_numpy(get(state)).float()
+    #     # x.require_grad = False
+    #     print(f'self.theta={self.theta}')
+
+    #     theta = th.tensor(self.theta.tolist(), requires_grad=True, dtype=float)
+
+    #     print(f'theta={theta}')
+    #     y = th.matmul(theta, x)
+    #     z = F.log_softmax(y, dim=-1)
+    #     z.backward(th.ones_like(y))
+
+    #     print(f'theta={theta}')
+    #     print(f'theta.grad={theta.grad}')
+    #     import ipdb; ipdb.set_trace()
+    #     theta_grad_a = theta.grad[action].detach().numpy()
+    #     return theta_grad_a
+
+
     def psi(self, state, action):
-        return (1 - self.PI(state)[action]) * (get(state) / self.tau)
+        res = [(int(action == _action) - _prob) * (get(state) / self.tau)
+                for _action, _prob in enumerate(self.PI(state))]
+        return np.vstack(res)
+
+    # def psi(self, state, action):
+    #     return (1 - self.PI(state)[action]) * (get(state) / self.tau)
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
