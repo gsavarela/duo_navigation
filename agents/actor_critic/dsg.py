@@ -95,13 +95,17 @@ class ActorCriticDifferentialSemiGradient(object):
         self.delta = np.clip(self.delta, -1, 1)
         self.mu += self.beta * self.delta
         self.omega += self.alpha * self.delta * get(state)
-        self.theta[cur][:] += self.zeta * self.delta * self.psi(state, cur)
+        self.theta += self.zeta * self.delta * self.psi(state, cur)
         self.step_count += 1
         self.epsilon = float(max(1e-1, self.epsilon - self.epsilon_step))
 
         
     def psi(self, state, action):
-        return (1 - self.PI(state)[action]) * (get(state) / self.tau)
+        res = np.zeros_like(self.theta)
+        for i, x in enumerate(get(state) / self.tau):
+            for j, y in enumerate(self.PI(state)):
+                res[j, i] = (int(action == j) - y)  * x
+        return res
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
