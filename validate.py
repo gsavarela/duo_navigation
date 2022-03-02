@@ -8,37 +8,29 @@ import pandas as pd
 import utils
 
 
+STATES_POSITIONS = [
+    (0,       [(1, 1), (1, 1)]),
+    (1,       [(1, 2), (1, 1)]),
+    (2,       [(2, 1), (1, 1)]),
+    (3,       [(2, 2), (1, 1)]),
+    (4,       [(1, 1), (1, 2)]),
+    (5,       [(1, 2), (1, 2)]),
+    (6,       [(2, 1), (1, 2)]),
+    (7,       [(2, 2), (1, 2)]),
+    (8,       [(1, 1), (2, 1)]),
+    (9,       [(1, 2), (2, 1)]),
+    (10,      [(2, 1), (2, 1)]),
+    (11,      [(2, 2), (2, 1)]),
+    (12,      [(1, 1), (2, 2)]),
+    (13,      [(1, 2), (2, 2)]),
+    (14,      [(2, 1), (2, 2)]),
+    (15,      [(2, 2), (2, 2)])
+]
+
 def sort(x):
     x = sorted(x, key=itemgetter(1))
     x = sorted(x, key=itemgetter(0))
     return x
-
-def generate_transitions_from_csv():
-    path = Path('data/AC-CHALLENGE/tabular/tr.csv')
-
-    df = pd.read_csv(path.as_posix())
-    
-
-    df['next_state'] = np.insert(df['state'].values[1:], -1, 0)
-    transitions = []
-    for episode in range(20):
-        # Use group by to select transitions
-        episode_df = df[df['episode'] == episode].\
-                        groupby(by=['state', 'action', 'next_state']).\
-                        count()
-        # Drop first and last
-        episode_df = episode_df[1:-1]
-        transitions += episode_df.index.tolist()
-
-    transitions_unique = sort(set(transitions))
-    for state in range(16):
-        state_transitions = [tr for tr in transitions_unique if tr[0] == state]
-        if len(state_transitions) > 16:
-            print(state, state_transitions)
-    
-    tr_path = path.parent / 'tr.json'
-    with tr_path.open('w') as f:
-        json.dump(transitions_unique, f)
 
 def generate_transitions_from_moves(width=2, height=2):
     action_set = utils.action_set(2)
@@ -68,9 +60,54 @@ def generate_transitions_from_moves(width=2, height=2):
 
     return tr
 
-if __name__ == '__main__':
-    tr = generate_transitions_from_moves()
-    for state in range(16):
-         sl = slice(state * 16, (state + 1) * 16)
-         print(state, tr[sl])
 
+def config2fields(config_path):
+    with config_path.open('r') as f:
+        data = json.load(f)
+
+    df = pd.DataFrame.from_dict(data, orient='index')
+    print(df)
+
+
+if __name__ == '__main__':
+    from pathlib import Path
+    from agents import ActorCriticSemiGradient
+    from collections import defaultdict
+    import features
+    from features import get
+    import pandas as pd
+    n_agents = 2
+    width, height = 2, 2
+    goal_pos = np.array([2, 1])
+
+    path = Path('data/AC-ONEHOT/01_baseline/')
+    # path = Path('data/AC-ONEHOT/02_episodes_100000/') 
+    # path = Path('data/AC-ONEHOT/04_decay/') 
+    # path = Path('data/AC-ONEHOT/05_x1_r1/') 
+    # path = Path('data/AC-ONEHOT/06_x1_r0/') 
+    # path = Path('data/AC-ONEHOT/07_x0_r0/') 
+    
+    
+
+    chkpt_num = [*path.rglob('*chkpt')][0].parent.stem
+    agent = ActorCriticSemiGradient.load_checkpoint(path, chkpt_num)
+
+    X = features.Features()
+    X.set('onehot', n_agents=2, width=2, height=2)
+
+    data = defaultdict(list) 
+    for state, position in STATES_POSITIONS:
+        if path is not None:
+            data['state'].append(state)
+            data['Coord 1'].append(position[0])
+            data['Coord 2'].append(position[-1])
+            data['V'].append(f'{agent.V[state]:0.2f}')
+            for j, adv in enumerate(agent.A[state, :]):
+                data[f'A(state, {j})'].append(f'{adv:0.2f}')
+        df = pd.DataFrame.from_dict(data). \
+                set_index('state')
+        
+    df.to_csv(path / 'advantage.csv')
+
+    config_path = path / 'config.json'
+    config2fields(config_path)
