@@ -158,7 +158,7 @@ def main(flags, timestamp):
 
     agent.save_checkpoints(experiment_dir, str(episodes))
 
-    snapshot_plot(log, experiment_dir)
+    # snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
     state_counter = Counter(log['state']) 
@@ -170,20 +170,6 @@ def main(flags, timestamp):
     df = display_policy(env, agent)
     df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
     
-    validation_rewards = []
-    state = env.reset()
-    agent.explore = False
-    for _ in range(100):
-        if render:
-           env.render(mode='human', highlight=True)
-           time.sleep(0.1)
-
-        next_state, next_reward, done, _ = env.step(agent.act(state))
-        validation_rewards.append(np.mean(next_reward))
-        state = next_state
-
-    validation_plot(validation_rewards)
-
 if __name__ == '__main__':
     # Gather parameters.
     flags = parser.parse_args()
