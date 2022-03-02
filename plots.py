@@ -315,18 +315,12 @@ def display_ac(env, agent):
             state, pos = next(states_positions_gen)
             pi_log = pi2str(agent.PI(state))
             max_action = np.argmax(agent.PI(state))
-            actions_log = act2str2([max_action])
             actions_optimal = bact(pos)
+
+            actions_log = act2str2([max_action])
             best_log = act2str2(actions_optimal)
             pos_log = ', '.join([pos2str(p) for p in pos])
-            msg = (f'\t{state}\t{pos_log}'
-                   f'\t{agent.V[state]:0.2f}'
-                   f'\t{pi_log}\n'
-                   f'\t{state}\t{pos_log}'
-                   f'\t{agent.V[state]:0.2f}'
-                   f'\t{actions_log}\tin\t{best_log}: {max_action in actions_optimal}\n'
-                   f'{"-" * 150}')
-            print(msg)
+
             data['state'].append(state)
             data['Coord 1'].append(tuple(pos[0]))
             data['Coord 2'].append(tuple(pos[1]))
@@ -338,6 +332,20 @@ def display_ac(env, agent):
                 data[f'PI(state, {i})'].append(np.round(pi, 2))
                 if i in actions_optimal: pr_success += pi
             data[f'PI(state, success)'].append(np.round(pr_success, 2))
+            data[f'A(state, {i})'] = agent.A[state, :].tolist()
+
+            advantages = data[f'A(state, {i})']
+            advantage_log = ','.join([f'{a:0.2f}' for a in data[f'A(state, {i})']])
+            msg = (f'\t{state}\t{pos_log}'
+                   f'\tV({state})={agent.V[state]:0.2f}'
+                   f'\t{pi_log}\n'
+                   f'\t{state}\t{pos_log}'
+                   f'\tP(success={pr_success:0.2f})'
+                   f'\t{actions_log}\tin\t{best_log}: {max_action in actions_optimal}\n'
+                   f'\t{state}\t{pos_log}'
+                   f'\tP(success={pr_success:0.2f})\t({advantage_log})\n'
+                   f'{"-" * 150}')
+            print(msg)
         except StopIteration:
             break
 

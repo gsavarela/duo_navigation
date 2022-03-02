@@ -57,6 +57,10 @@ class SARSASemiGradient(object):
     def V(self):
         return self._cache_V(self.step_count)
     
+    @property
+    def A(self):
+        return self.Q - self.V
+
     @lru_cache(maxsize=1)
     def _cache_V(self, step_count):
         return np.max(self.Q, axis=1)

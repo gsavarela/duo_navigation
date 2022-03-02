@@ -63,6 +63,14 @@ class ActorCriticDifferentialSemiGradient(object):
         return float(10 * self.epsilon if self.explore else 1.0)
 
     @property
+    def A(self):
+        res = np.stack([
+            (get(state) @ self.theta.T / self.tau) for state in range(self.n_states)
+        ])
+        return res
+        
+
+    @property
     def V(self):
         return self._cache_V(self.step_count)
     
@@ -101,11 +109,10 @@ class ActorCriticDifferentialSemiGradient(object):
 
         
     def psi(self, state, action):
-        res = np.zeros_like(self.theta)
-        for i, x in enumerate(get(state) / self.tau):
-            for j, y in enumerate(self.PI(state)):
-                res[j, i] = (int(action == j) - y)  * x
-        return res
+        X = np.tile(get(state) / self.tau, (len(self.action_set), 1))
+        P = -np.tile(self.PI(state), (self.theta.shape[0], 1)).T
+        P[action] += 1
+        return P * X
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()

@@ -93,6 +93,13 @@ class ActorCriticSemiGradient(object):
     def _cache_PIS(self, state, step_count):
         return softmax(self.theta @ (get(state)/ self.tau))
 
+    @property
+    def A(self):
+        return np.stack([
+            (get(state) @ self.theta.T / self.tau) for state in range(self.n_states)
+        ])
+
+    
     def act(self, state):
         cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
@@ -117,11 +124,11 @@ class ActorCriticSemiGradient(object):
         self.step_count += 1
 
     def psi(self, state, action):
-        res = np.zeros_like(self.theta)
-        for i, x in enumerate(get(state) / self.tau):
-            for j, y in enumerate(self.PI(state)):
-                res[j, i] = (int(action == j) - y)  * x
-        return res
+        X = np.tile(get(state) / self.tau, (len(self.action_set), 1))
+        P = -np.tile(self.PI(state), (self.theta.shape[0], 1)).T
+
+        P[action] += 1
+        return P * X
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
