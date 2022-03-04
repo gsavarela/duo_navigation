@@ -44,7 +44,7 @@ parser.add_argument('-z', '--zeta', default=0.1, type=float,
         help='''Zeta is the actor parameter:
                 Actor learning rate for continuing tasks.''')
 
-parser.add_argument('-d', '--decay', default=True, type=str2bool,
+parser.add_argument('-d', '--decay', default=False, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
                 Replaces `alpha` and `beta` parameters.''')
 
@@ -100,7 +100,6 @@ def validate_arguments(opts):
     # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):
-
     # Instanciate environment and agent
     register(
         id='duo-navigation-v0',
@@ -168,7 +167,23 @@ def main(flags, timestamp):
     
 
     df = display_policy(env, agent)
-    df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
+    # df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
+
+    # Make two files -- policy and advantages
+    # policy.csv
+    def fn(x): return 'A(state,' not in x
+    policy_path = experiment_dir / 'policy.csv'
+    policy_columns = [*filter(fn, df.columns.tolist())]
+    df[policy_columns].to_csv(policy_path)
+
+    def gn(x): return 'PI(state,' not in x
+    advantage_path = experiment_dir / 'advantage.csv'
+    advantages_columns = [*filter(gn, df.columns.tolist())]
+    df[advantages_columns].to_csv(advantage_path)
+
+    with (experiment_dir / 'snapshot.json').open('w') as f:
+        json.dump(log, f)
+    
     
 if __name__ == '__main__':
     # Gather parameters.
