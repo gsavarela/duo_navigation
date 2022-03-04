@@ -331,7 +331,7 @@ def display_ac(env, agent):
             pr_success = 0
             advantages = agent.A[state, :]
             for i, pi in enumerate(agent.PI(state)):  
-                data[f'A(state, {i})'].append(agent.A[state, i])
+                data[f'A(state, {i})'].append(f'{agent.A[state, i]:0.2f}')
                 data[f'PI(state, {i})'].append(np.round(pi, 2))
                 if i in actions_optimal: pr_success += pi
             data[f'PI(state, success)'].append(np.round(pr_success, 2))
@@ -375,6 +375,7 @@ def display_ac(env, agent):
                     data[f'Q(state, {i})'].append(np.round(q, 2))
             except StopIteration:
                 break
+
     df = pd.DataFrame.from_dict(data). \
             set_index('state')
     
