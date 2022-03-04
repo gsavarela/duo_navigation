@@ -54,9 +54,8 @@ class ActorCriticSemiGradient(object):
     def reset(self, seed=None, first=False):
         self.discount = 1.0
 
-        if first:
-            np.random.seed(seed)
-        else:
+        np.random.seed(seed)
+        if not first:
             self.epsilon = max(1e-1, self.epsilon - self.epsilon_step)
             # For each episode
             if self.decay:
