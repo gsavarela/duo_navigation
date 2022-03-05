@@ -14,7 +14,7 @@ from functools import lru_cache
 
 import dill
 import numpy as np
-from numpy.random import rand, choice
+from numpy.random import choice
 
 from features import get, label
 from utils import softmax
@@ -88,7 +88,8 @@ class ActorCriticDifferentialSemiGradient(object):
         return softmax(get(state) @ self.theta.T / self.tau)
 
     def reset(self, seed=0):
-        np.random.seed(seed)
+        # np.random.seed(seed)
+        pass
 
     def act(self, state):
         cur = choice(len(self.action_set), p=self.PI(state))
@@ -101,9 +102,9 @@ class ActorCriticDifferentialSemiGradient(object):
                     (get(next_state) - get(state)) @ self.omega
 
         self.delta = np.clip(self.delta, -1, 1)
-        self.mu += self.beta * self.delta
+        self.mu += self.zeta * self.delta
         self.omega += self.alpha * self.delta * get(state)
-        self.theta += self.zeta * self.delta * self.psi(state, cur)
+        self.theta += self.beta * self.delta * self.psi(state, cur)
         self.step_count += 1
         self.epsilon = float(max(1e-1, self.epsilon - self.epsilon_step))
 
