@@ -157,7 +157,7 @@ def main(flags, timestamp):
 
     agent.save_checkpoints(experiment_dir, str(episodes))
 
-    # snapshot_plot(log, experiment_dir)
+    snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
 
     state_counter = Counter(log['state']) 
@@ -167,7 +167,6 @@ def main(flags, timestamp):
     
 
     df = display_policy(env, agent)
-    # df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
 
     # Make two files -- policy and advantages
     # policy.csv
