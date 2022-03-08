@@ -101,7 +101,11 @@ class DuoNavigationEnv(MultiGridEnv):
 
 
                 # Don't place the object on top of another object
-                if self.grid.get(*pos) is not None:
+                if self.grid.get(*pos) is None:
+                    break
+
+                if isinstance(self.grid.get(*pos), Goal) or \
+                        not self.grid.get(*pos).can_overlap():
                     continue
 
                 # Check if there is a filtering criterion
@@ -150,6 +154,13 @@ class DuoNavigationEnv(MultiGridEnv):
     def step(self, actions):
         self.step_count += 1
 
+        # stop conditions: Timeout or goal
+        timeout = (self.step_count >= self.max_steps)
+
+        # Agent earns the reward by reaching the goal
+        # not by making the action that leads to goal.
+        done = (self.episodic and self.goal_reached)
+
         for i, ag in enumerate(self.agents):
 
             # uses terminated as indicator that it has reached the goal.
@@ -171,7 +182,15 @@ class DuoNavigationEnv(MultiGridEnv):
                 ag.dir = 3
 
             # Get the position in front of the agent
+            # def circular(x):
+            #     if x[0] == 0: x[0] = self.width - 2
+            #     x[0] =  max(x[0] % (self.width - 1), 1)
+            #     if x[1] == 0: x[1] = self.height - 2
+            #     x[1] =  max(x[1] % (self.height - 1), 1)
+            #     return x
+            # fwd_pos = circular(ag.front_pos)
             fwd_pos = ag.front_pos
+            # print(ag.pos, ag.front_pos, fwd_pos)
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
@@ -181,12 +200,6 @@ class DuoNavigationEnv(MultiGridEnv):
                 self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
-        # stop conditions: Timeout or goal
-        timeout = (self.step_count >= self.max_steps)
-
-        # Agent earns the reward by reaching the goal
-        # not by making the action that leads to goal.
-        done = (self.episodic and self.goal_reached)
 
         rewards = np.ones(len(actions)) * -1e-1
         if self.goal_reached: rewards = -rewards

@@ -9,8 +9,7 @@ import time
 from env import make, register
 import numpy as np
 
-from plots import (globally_averaged_plot, advantages_plot,
-        q_values_plot, display_policy, validation_plot, snapshot_plot)
+from plots import display_policy, snapshot_plot
 from logs import snapshot_log, snapshot_state_actions_log
 from utils import str2bool
 
@@ -133,7 +132,7 @@ def main(flags, timestamp):
     log = defaultdict(list)
     for episode in range(episodes):
         state = env.reset()
-        agent.reset()
+        agent.reset(seed=episode)
         actions = agent.act(state)
 
         while True:

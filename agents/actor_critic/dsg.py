@@ -88,14 +88,14 @@ class ActorCriticDifferentialSemiGradient(object):
         return softmax(get(state) @ self.theta.T / self.tau)
 
     def reset(self, seed=0):
-        # np.random.seed(seed)
-        pass
+        np.random.seed(seed)
 
     def act(self, state):
         cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
+
         cur = self.action_set.index(actions)
 
         self.delta = np.mean(next_rewards) - self.mu  + \
