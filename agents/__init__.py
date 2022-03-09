@@ -14,7 +14,7 @@ def get_agent(env, flags):
     #     return agent_cls(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
     if flags.agent_type in ('SARSATabular', 'SARSASemiGradient'):
         return agent_cls(env, alpha=flags.alpha, episodes=flags.episodes) 
-    if flags.agent_type in ('ActorCriticSemiGradient', 'SARSADifferentialSemiGradient'):
+    if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticSemiGradient', 'SARSADifferentialSemiGradient'):
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes, explore=flags.explore, decay=flags.decay)
     if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticTabular'):
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, zeta=flags.zeta, episodes=flags.episodes, explore=flags.explore)
