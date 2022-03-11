@@ -54,9 +54,9 @@ class ActorCriticSemiGradient(object):
     def reset(self, seed=None, first=False):
         self.discount = 1.0
 
-        if first:
+        if seed is not None:
             np.random.seed(seed)
-        else:
+        if not first:
             self.epsilon = max(1e-1, self.epsilon - self.epsilon_step)
             # For each episode
             if self.decay:
@@ -78,20 +78,24 @@ class ActorCriticSemiGradient(object):
 
     @property
     def V(self):
-        return self._cache_V(self.step_count)
-    
-    @lru_cache(maxsize=1)
-    def _cache_V(self, step_count):
         return np.array([
             get(state) @ self.omega for state in range(self.n_states)
         ])
+    #    return self._cache_V(self.step_count)
+    
+    # @lru_cache(maxsize=1)
+    # def _cache_V(self, step_count):
+    #     return np.array([
+    #         get(state) @ self.omega for state in range(self.n_states)
+    #     ])
 
     def PI(self, state):
-        return self._cache_PIS(state, self.step_count).tolist() 
-
-    @lru_cache(maxsize=1)
-    def _cache_PIS(self, state, step_count):
+        # return self._cache_PIS(state, self.step_count).tolist() 
         return softmax(self.theta @ (get(state)/ self.tau))
+
+    # @lru_cache(maxsize=1)
+    # def _cache_PIS(self, state, step_count):
+    #     return softmax(self.theta @ (get(state)/ self.tau))
 
     @property
     def A(self):
@@ -101,7 +105,10 @@ class ActorCriticSemiGradient(object):
 
     
     def act(self, state):
-        cur = choice(len(self.action_set), p=self.PI(state))
+        # if self.step_count > 50_000 and state in (0, 15):
+        #     import ipdb; ipdb.set_trace()
+        # cur = choice(len(self.action_set), p=self.PI(state))
+        cur = np.digitize(np.random.rand(), self.PI(state).cumsum())
         return self.action_set[cur]
 
     def update(self, state, actions, next_rewards, next_state, next_actions, done):

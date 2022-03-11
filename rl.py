@@ -95,8 +95,8 @@ def print_arguments(opts, timestamp):
         print(f'\t{k}: {v}')
 
 def validate_arguments(opts):
-    assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient', 'ActorCriticSemiGradient') and opts.episodic) or \
-        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCriticDifferentialSemiGradient', 'ActorCriticTabular') and not opts.episodic)
+    assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient', 'ActorCriticSemiGradient', 'ActorCriticTabular') and opts.episodic) or \
+        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCriticDifferentialSemiGradient') and not opts.episodic)
     # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):
@@ -133,7 +133,7 @@ def main(flags, timestamp):
     log = defaultdict(list)
     for episode in range(episodes):
         state = env.reset()
-        agent.reset()
+        agent.reset(seed=episode)
         actions = agent.act(state)
 
         while True:

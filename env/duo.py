@@ -100,8 +100,17 @@ class DuoNavigationEnv(MultiGridEnv):
                 ))
 
 
-                # Don't place the object on top of another object
-                if self.grid.get(*pos) is not None:
+                # Cell is free
+                if self.grid.get(*pos) is None:
+                    break
+
+                # Don't place the object on top of a wall
+                if not self.grid.get(*pos).can_overlap():
+                    continue
+
+                # Don't place an agent over goal and other agent
+                stacked_classes = [type(stacked) for stacked in self.grid.get_stack(*pos)]
+                if Goal in stacked_classes and Agent in stacked_classes:
                     continue
 
                 # Check if there is a filtering criterion
@@ -312,6 +321,7 @@ class DuoNavigationEnv(MultiGridEnv):
     @cached_property
     def action_set(self):
         return action_set(len(self.agents))
+
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
     def __init__(self, **kwargs):
