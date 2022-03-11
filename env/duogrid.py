@@ -57,6 +57,13 @@ class Grid(mult.Grid):
         if self.grid[j * self.width + i] is v: 
             self.grid[j * self.width + i] = None
 
+
+    def get_stack(self, i, j):
+        # checks if v is in (i, j).
+        assert j >= 0 and j < self.height
+        assert i >= 0 and i < self.width
+        return self.stack[j * self.width + i]
+
     def slice(self, world, topX, topY, width, height):
         """
         Get a subset of the grid

@@ -100,12 +100,17 @@ class DuoNavigationEnv(MultiGridEnv):
                 ))
 
 
-                # Don't place the object on top of another object
+               # Cell is free -- its okay
                 if self.grid.get(*pos) is None:
                     break
 
-                if isinstance(self.grid.get(*pos), Goal) or \
-                        not self.grid.get(*pos).can_overlap():
+                # Don't place the object on top of a wall
+                if not self.grid.get(*pos).can_overlap():
+                    continue
+
+                # Don't place an agent over goal and other agent
+                stacked_classes = [type(stacked) for stacked in self.grid.get_stack(*pos)]
+                if Goal in stacked_classes and Agent in stacked_classes:
                     continue
 
                 # Check if there is a filtering criterion
@@ -154,13 +159,6 @@ class DuoNavigationEnv(MultiGridEnv):
     def step(self, actions):
         self.step_count += 1
 
-        # stop conditions: Timeout or goal
-        timeout = (self.step_count >= self.max_steps)
-
-        # Agent earns the reward by reaching the goal
-        # not by making the action that leads to goal.
-        done = (self.episodic and self.goal_reached)
-
         for i, ag in enumerate(self.agents):
 
             # uses terminated as indicator that it has reached the goal.
@@ -200,6 +198,13 @@ class DuoNavigationEnv(MultiGridEnv):
                 self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
+
+        # stop conditions: Timeout or goal
+        timeout = (self.step_count >= self.max_steps)
+
+        # Agent earns the reward by reaching the goal
+        # not by making the action that leads to goal.
+        done = (self.episodic and self.goal_reached)
 
         rewards = np.ones(len(actions)) * -1e-1
         if self.goal_reached: rewards = -rewards
@@ -325,6 +330,7 @@ class DuoNavigationEnv(MultiGridEnv):
     @cached_property
     def action_set(self):
         return action_set(len(self.agents))
+
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
     def __init__(self, **kwargs):
