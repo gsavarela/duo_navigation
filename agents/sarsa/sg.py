@@ -19,7 +19,7 @@ from utils import i2q
 from features import get, label
 
 class SARSASemiGradient(object):
-    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=20):
+    def __init__(self, env, alpha=0.2, gamma=0.98, episodes=20, **kwargs):
 
         # The environment
         self.action_set = env.action_set
@@ -57,6 +57,10 @@ class SARSASemiGradient(object):
     def V(self):
         return self._cache_V(self.step_count)
     
+    @property
+    def A(self):
+        return self.Q - self.V
+
     @lru_cache(maxsize=1)
     def _cache_V(self, step_count):
         return np.max(self.Q, axis=1)

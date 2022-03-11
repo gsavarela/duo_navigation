@@ -100,8 +100,17 @@ class DuoNavigationEnv(MultiGridEnv):
                 ))
 
 
-                # Don't place the object on top of another object
-                if self.grid.get(*pos) is not None:
+               # Cell is free -- its okay
+                if self.grid.get(*pos) is None:
+                    break
+
+                # Don't place the object on top of a wall
+                if not self.grid.get(*pos).can_overlap():
+                    continue
+
+                # Don't place an agent over goal and other agent
+                stacked_classes = [type(stacked) for stacked in self.grid.get_stack(*pos)]
+                if Goal in stacked_classes and Agent in stacked_classes:
                     continue
 
                 # Check if there is a filtering criterion
@@ -150,14 +159,6 @@ class DuoNavigationEnv(MultiGridEnv):
     def step(self, actions):
         self.step_count += 1
 
-        # Timeout or goal
-        done = (self.step_count >= self.max_steps) or \
-                (self.episodic and self.goal_reached)
-
-        # Agent earns the reward by reaching the goal
-        # not by making the action that leads to goal.
-        rewards = np.ones(len(actions)) * -1e-1
-        if self.goal_reached: rewards = -rewards
         for i, ag in enumerate(self.agents):
 
             # uses terminated as indicator that it has reached the goal.
@@ -179,7 +180,15 @@ class DuoNavigationEnv(MultiGridEnv):
                 ag.dir = 3
 
             # Get the position in front of the agent
+            # def circular(x):
+            #     if x[0] == 0: x[0] = self.width - 2
+            #     x[0] =  max(x[0] % (self.width - 1), 1)
+            #     if x[1] == 0: x[1] = self.height - 2
+            #     x[1] =  max(x[1] % (self.height - 1), 1)
+            #     return x
+            # fwd_pos = circular(ag.front_pos)
             fwd_pos = ag.front_pos
+            # print(ag.pos, ag.front_pos, fwd_pos)
 
             # Get the contents of the cell in front of the agent
             fwd_cell = self.grid.get(*fwd_pos)
@@ -189,7 +198,17 @@ class DuoNavigationEnv(MultiGridEnv):
                 self.grid.rm(*ag.pos, ag)
                 ag.pos = fwd_pos
 
-        return self.state, rewards, done, {}
+
+        # stop conditions: Timeout or goal
+        timeout = (self.step_count >= self.max_steps)
+
+        # Agent earns the reward by reaching the goal
+        # not by making the action that leads to goal.
+        done = (self.episodic and self.goal_reached)
+
+        rewards = np.ones(len(actions)) * -1e-1
+        if self.goal_reached: rewards = -rewards
+        return self.state, rewards, done, timeout
 
     
     def reset(self):
@@ -311,6 +330,7 @@ class DuoNavigationEnv(MultiGridEnv):
     @cached_property
     def action_set(self):
         return action_set(len(self.agents))
+
 class DuoNavigationGameEnv(DuoNavigationEnv):
 
     def __init__(self, **kwargs):

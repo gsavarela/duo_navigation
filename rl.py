@@ -9,9 +9,8 @@ import time
 from env import make, register
 import numpy as np
 
-from plots import (globally_averaged_plot, advantages_plot,
-        q_values_plot, display_policy, validation_plot, snapshot_plot)
-from logs import snapshot_log
+from plots import display_policy, snapshot_plot
+from logs import snapshot_log, snapshot_state_actions_log
 from utils import str2bool
 
 from features import Features
@@ -44,7 +43,7 @@ parser.add_argument('-z', '--zeta', default=0.1, type=float,
         help='''Zeta is the actor parameter:
                 Actor learning rate for continuing tasks.''')
 
-parser.add_argument('-d', '--decay', default=True, type=str2bool,
+parser.add_argument('-d', '--decay', default=False, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
                 Replaces `alpha` and `beta` parameters.''')
 
@@ -78,11 +77,14 @@ parser.add_argument('-S', '--seed', default=47, type=int,
         help='''An integer to be used as a random seed.''')
 
 parser.add_argument('-r', '--random_starts', default=True, type=str2bool,
-        help='''The number of agents on the grid:
-                Should be either `1` or `2`. Use `1` for debugging.''')
+        help='''Regulates hte initial position of agents on the grid:
+                Should be either `0` or `1`. Use `0` for debugging.''')
 
 parser.add_argument('-R', '--render', default=False, type=str2bool,
         help='''Shows the grid during the training.''')
+
+parser.add_argument('-x', '--explore', default=True, type=str2bool,
+        help='''Use temperature for continuing tasks or epsilon-greedy.''')
 
 def print_arguments(opts, timestamp):
 
@@ -92,11 +94,11 @@ def print_arguments(opts, timestamp):
         print(f'\t{k}: {v}')
 
 def validate_arguments(opts):
-    assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient') and opts.episodic) or \
-        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCritic', 'ActorCriticTabular') and not opts.episodic)
+    assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient', 'ActorCriticSemiGradient') and opts.episodic) or \
+        (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCriticDifferentialSemiGradient', 'ActorCriticTabular') and not opts.episodic)
+    # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
 
 def main(flags, timestamp):
-
     # Instanciate environment and agent
     register(
         id='duo-navigation-v0',
@@ -130,14 +132,14 @@ def main(flags, timestamp):
     log = defaultdict(list)
     for episode in range(episodes):
         state = env.reset()
-        agent.reset()
+        agent.reset(seed=episode)
         actions = agent.act(state)
 
         while True:
             if render:
                 env.render(mode='human', highlight=True)
                 time.sleep(0.1)
-            next_state, next_reward, done, _ = env.step(actions)
+            next_state, next_reward, done, timeout = env.step(actions)
 
             next_actions = agent.act(next_state)
             tr = [state, actions, next_reward, next_state, next_actions]
@@ -149,32 +151,40 @@ def main(flags, timestamp):
             print(step_log)
             state = next_state 
             actions = next_actions
-            if done:
+            if done or timeout:
                 break
 
-        agent.save_checkpoints(experiment_dir, str(episode))
+    agent.save_checkpoints(experiment_dir, str(episodes))
+
     snapshot_plot(log, experiment_dir)
     print(f'Experiment path:\t{experiment_dir.as_posix()}')
     
     print('Visits to each state:', Counter(log['state']))
 
-    df = display_policy(env, agent)
-    df.to_csv((experiment_dir / 'policy.csv').as_posix(), sep='\t')
+    state_counter = Counter(log['state']) 
+    print('Visited states', state_counter)
+    df = snapshot_state_actions_log(log, experiment_dir)
+    print(df)
     
 
-    validation_rewards = []
-    state = env.reset()
-    for _ in range(100):
-        if render:
-           env.render(mode='human', highlight=True)
-           time.sleep(0.1)
+    df = display_policy(env, agent)
 
-        next_state, next_reward, done, _ = env.step(agent.act(state))
-        validation_rewards.append(np.mean(next_reward))
-        state = next_state
+    # Make two files -- policy and advantages
+    # policy.csv
+    def fn(x): return 'A(state,' not in x
+    policy_path = experiment_dir / 'policy.csv'
+    policy_columns = [*filter(fn, df.columns.tolist())]
+    df[policy_columns].to_csv(policy_path)
 
-    validation_plot(validation_rewards)
+    def gn(x): return 'PI(state,' not in x
+    advantage_path = experiment_dir / 'advantage.csv'
+    advantages_columns = [*filter(gn, df.columns.tolist())]
+    df[advantages_columns].to_csv(advantage_path)
 
+    with (experiment_dir / 'snapshot.json').open('w') as f:
+        json.dump(log, f)
+    
+    
 if __name__ == '__main__':
     # Gather parameters.
     flags = parser.parse_args()

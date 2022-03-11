@@ -34,7 +34,7 @@ def snapshot_plot(snapshot_log, img_path):
 
     if task == 'episodic':
         epsilons = snapshot_log['epsilon']
-        cumulative_rewards_plot(rewards, img_path, label)
+        # cumulative_rewards_plot(rewards, img_path, label)
         episode_duration_plot(episodes, epsilons, img_path, label=label)
         episode_rewards_plot(episodes, rewards, img_path, label=label)
     else:
@@ -43,11 +43,8 @@ def snapshot_plot(snapshot_log, img_path):
 
     
     snapshot_path = img_path / 'snapshot.json'
-    try:
-        with snapshot_path.open('w') as f:
-            json.dump(snapshot_log, f)
-    except TypeError:
-        import ipdb; ipdb.set_trace()
+    with snapshot_path.open('w') as f:
+        json.dump(snapshot_log, f)
 # use this only for continuing tasks.
 # episodes is a series with the episode numbers
 def globally_averaged_plot(mus, img_path, episodes):
@@ -87,7 +84,7 @@ def cumulative_rewards_plot(rewards, img_path, label=None):
 
     Y = np.cumsum(rewards) / np.arange(1, len(rewards) + 1)
     X = np.linspace(1, len(rewards), len(rewards))
-    Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
+    # Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
 
     suptitle = 'Team Return' 
     y_label = 'Cumulative Averaged Reward'
@@ -96,7 +93,7 @@ def cumulative_rewards_plot(rewards, img_path, label=None):
 
     plt.suptitle(suptitle)
     plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label=label)
-    plt.plot(X, Y_smooth[:, 1], label=f'Smoothed {label}')
+    # plt.plot(X, Y_smooth[:, 1], label=f'Smoothed {label}')
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.legend(loc=4)
@@ -111,7 +108,7 @@ def episode_rewards_plot(episodes, rewards, img_path, label=None):
     fig = plt.figure()
     fig.set_size_inches(FIGURE_X, FIGURE_Y)
 
-    target = 1
+    target = 0.1
 
     rewards = np.array(rewards)
     episodes = np.array(episodes)
@@ -122,16 +119,17 @@ def episode_rewards_plot(episodes, rewards, img_path, label=None):
         rewards_episodes.append(np.sum(rewards[episodes == episode]))
 
     Y = np.array(rewards_episodes)
-    Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
+    # Y_smooth = sm.nonparametric.lowess(Y, X, frac=0.10)
 
     suptitle = 'Episode Return vs Target' 
-    y_label = 'Smoothed Return Per Episode'
+    y_label = 'Cum. Average Return Per Episode'
     x_label = 'Episodes'
 
 
     plt.suptitle(suptitle)
     plt.axhline(y=target, c='red', label='target')
-    plt.plot(X, Y_smooth[:, 1], c=SMOOTHING_CURVE_COLOR, label=label)
+    # plt.plot(X, Y_smooth[:, 1], c=SMOOTHING_CURVE_COLOR, label=label)
+    plt.plot(X, Y, c=CENTRALIZED_AGENT_COLOR, label=label)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.legend(loc=4)
@@ -159,7 +157,7 @@ def episode_duration_plot(episodes, epsilons, img_path, label=None):
         episodes_epsilon.append(np.mean(epsilons[episodes == episode]))
 
     Y1 = np.array(episodes_duration)
-    Y1_smooth = sm.nonparametric.lowess(Y1, X, frac=0.10)
+    # Y1_smooth = sm.nonparametric.lowess(Y1, X, frac=0.10)
     Y2 = np.array(episodes_epsilon)
 
     suptitle = 'Duration vs. Epsilon' 
@@ -178,13 +176,15 @@ def episode_duration_plot(episodes, epsilons, img_path, label=None):
     fig, ax = plt.subplots()
 
     #add first line to plot
-    ax.plot(X, Y1_smooth[:, 1], color=SMOOTHING_CURVE_COLOR)
+    # ax.plot(X, Y1_smooth[:, 1], color=SMOOTHING_CURVE_COLOR)
+    ax.plot(X, Y1, color=CENTRALIZED_AGENT_COLOR)
 
     #add x-axis label
     ax.set_xlabel(x_label)
 
     #add y-axis label
-    ax.set_ylabel(f'Smoothed {y1_label}', color=SMOOTHING_CURVE_COLOR)
+    # ax.set_ylabel(f'Smoothed {y1_label}', color=SMOOTHING_CURVE_COLOR)
+    ax.set_ylabel(f'{y1_label}', color=CENTRALIZED_AGENT_COLOR)
 
     #define second y-axis that shares x-axis with current plot
     ax2 = ax.twinx()
@@ -259,10 +259,7 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
 
 # TODO: port display_ac
 def display_policy(env, agent):
-    #if hasattr(agent, 'PI'):
     return display_ac(env, agent)
-    # else:
-    #     display_Q(env, agent)
 
         
 def display_Q(env, agent):
@@ -318,29 +315,38 @@ def display_ac(env, agent):
             state, pos = next(states_positions_gen)
             pi_log = pi2str(agent.PI(state))
             max_action = np.argmax(agent.PI(state))
-            actions_log = act2str2([max_action])
             actions_optimal = bact(pos)
+
+            actions_log = act2str2([max_action])
             best_log = act2str2(actions_optimal)
             pos_log = ', '.join([pos2str(p) for p in pos])
-            msg = (f'\t{state}\t{pos_log}'
-                   f'\t{agent.V[state]:0.2f}'
-                   f'\t{pi_log}\n'
-                   f'\t{state}\t{pos_log}'
-                   f'\t{agent.V[state]:0.2f}'
-                   f'\t{actions_log}\tin\t{best_log}: {max_action in actions_optimal}\n'
-                   f'{"-" * 150}')
-            print(msg)
+
             data['state'].append(state)
             data['Coord 1'].append(tuple(pos[0]))
             data['Coord 2'].append(tuple(pos[1]))
             data['V'].append(np.round(agent.V[state], 2))
             data['move_most_likely'].append(actions_log)
             data['move_optimal'].append(best_log)
+
             pr_success = 0
+            advantages = agent.A[state, :]
             for i, pi in enumerate(agent.PI(state)):  
+                data[f'A(state, {i})'].append(f'{agent.A[state, i]:0.2f}')
                 data[f'PI(state, {i})'].append(np.round(pi, 2))
                 if i in actions_optimal: pr_success += pi
             data[f'PI(state, success)'].append(np.round(pr_success, 2))
+
+            advantage_log = ','.join([f'{a:0.2f}' for a in advantages])
+            msg = (f'\t{state}\t{pos_log}'
+                   f'\tV({state})={agent.V[state]:0.2f}'
+                   f'\t{pi_log}\n'
+                   f'\t{state}\t{pos_log}'
+                   f'\tP(success={pr_success:0.2f})'
+                   f'\t{actions_log}\tin\t{best_log}: {max_action in actions_optimal}\n'
+                   f'\t{state}\t{pos_log}'
+                   f'\tP(success={pr_success:0.2f})\t({advantage_log})\n'
+                   f'{"-" * 150}')
+            print(msg)
         except StopIteration:
             break
 
@@ -369,6 +375,7 @@ def display_ac(env, agent):
                     data[f'Q(state, {i})'].append(np.round(q, 2))
             except StopIteration:
                 break
+
     df = pd.DataFrame.from_dict(data). \
             set_index('state')
     

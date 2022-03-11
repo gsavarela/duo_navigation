@@ -17,13 +17,11 @@ from functools import lru_cache
 import dill
 import numpy as np
 from numpy.random import rand, choice
-from numpy.random import Generator
-
-from features import get_s, get_sa, label
+from features import get, label
 from utils import softmax
 
 class ActorCriticTabular(object):
-    def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20):
+    def __init__(self, env, alpha=0.3, beta=0.2, zeta=0.1,episodes=20, explore=True):
 
         # The environment
         self.action_set = env.action_set
@@ -50,9 +48,9 @@ class ActorCriticTabular(object):
         self.beta = beta
         self.zeta = zeta
         self.reset(seed=0)
-        self.explore = True
+        self.explore = explore
         self.epsilon = 1.0
-        self.epsilon_step = float(2 * (1 - 1e-2) / env.max_steps * episodes)
+        self.epsilon_step = float((1.1 - 1e-2) / (env.max_steps * episodes))
 
     @property
     def label(self):
@@ -73,17 +71,22 @@ class ActorCriticTabular(object):
         tau = self.tau if explore else 1 
         return softmax(self._thetaX(state, self.step_count) / tau)
 
-    @lru_cache(maxsize=1)
-    def _thetaX(self, state, step_count):
-        return get_sa(state) @ self.theta
 
+    @lru_cache(maxsize=1)
+    def _cache_PIS(self, state, step_count):
+        return softmax(get(state) @ self.theta.T / self.tau)
+    
     def reset(self, seed=0):
         np.random.seed(seed)
 
     def act(self, state):
-        prob = self.pi(state, explore=self.explore)
-        cur = choice(len(self.action_set), p=prob)
+        cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
+
+
+    @property
+    def tau(self):
+        return float(10 * self.epsilon if self.explore else 1.0)
 
     def update(self, state, actions, next_rewards, next_state, next_actions):
         cur = self.action_set.index(actions)
@@ -100,7 +103,7 @@ class ActorCriticTabular(object):
 
         
     def psi(self, state, action):
-        return (get_sa(state, action) - self.pi(state) @ get_sa(state))
+        return (1 - self.PI(state)[action]) * (get(state) / self.tau)
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()

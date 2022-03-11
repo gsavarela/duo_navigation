@@ -106,10 +106,10 @@ class Features:
         self.height = height
 
 
-        column_rank = 0
-        row_rank = 0
+        rank_column = 0
+        rank_row = 0
         # Change this for tests
-        while column_rank != self.n_states and row_rank != self.n_features:
+        while rank_column != self.n_states and rank_row != self.n_states:
             self.features = np.zeros((self.n_features, self.n_features), dtype=float)
             if 'onehot' in features:
                 # this features belong to the state only
@@ -120,8 +120,8 @@ class Features:
                 # this features belong to the state only
                 self.features += uniform(size=self.features.shape)
             self.features = l2_norm(self.features)
-            column_rank = np.linalg.matrix_rank(self.features)
-            row_rank = np.linalg.matrix_rank(self.features.T)
+            rank_column = np.linalg.matrix_rank(self.features)
+            rank_row = np.linalg.matrix_rank(self.features.T)
 
     def get_state_actions(self, state, actions=None):
         tr = self.transitions 
