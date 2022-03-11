@@ -53,7 +53,10 @@ def snapshot_log(episode, env, agent, tr, log_dict, debug=True):
         step_log += f'Globally Averaged J: {agent.mu:0.4f}\t' 
 
     if hasattr(agent, 'delta'):
-        log_dict['delta'].append(float(np.round(agent.delta, 4)))
+        if hasattr(agent.delta, '__iter__'):
+            log_dict['delta'].append([float(np.round(di, 4)) for di in agent.delta])
+        else:
+            log_dict['delta'].append(float(np.round(agent.delta, 4)))
 
     if debug:
         n_actions = len(actions)
