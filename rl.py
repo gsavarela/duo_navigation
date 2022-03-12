@@ -37,11 +37,15 @@ parser.add_argument('-a', '--alpha', default=0.5, type=float,
 
 parser.add_argument('-b', '--beta', default=0.3, type=float,
         help='''Beta is the actor parameter:
-                Reward attenuation for continuing tasks.''')
+                Actor learning rate. ''')
+
+parser.add_argument('-c', '--cooperative', default=True, type=str2bool,
+        help='''Reward type:
+                if True reward is the same for both players.
+                if False each player earns it\'s own reward''')
 
 parser.add_argument('-z', '--zeta', default=0.1, type=float,
-        help='''Zeta is the actor parameter:
-                Actor learning rate for continuing tasks.''')
+        help='''Reward attenuation for continuing tasks.''')
 
 parser.add_argument('-d', '--decay', default=False, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
@@ -140,7 +144,17 @@ def main(flags, timestamp):
                 env.render(mode='human', highlight=True)
                 time.sleep(0.1)
             next_state, next_reward, done, timeout = env.step(actions)
-
+            
+            # Uncomment to test individual reward structure.:
+            # if next_state in (0, 1, 3, 4, 5, 7, 12, 13, 15):
+            #     test_reward = np.array([-0.1, -0.1])
+            # elif next_state in (2, 6, 14):
+            #     test_reward = np.array([0.1, -0.1])
+            # elif next_state in (8, 9, 11):
+            #     test_reward = np.array([-0.1, 0.1])
+            # else:
+            #     test_reward = np.array([0.1, 0.1])
+            # np.testing.assert_array_equal(next_reward, test_reward)
             next_actions = agent.act(next_state)
             tr = [state, actions, next_reward, next_state, next_actions]
             if episodic: tr.append(done)

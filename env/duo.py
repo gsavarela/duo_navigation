@@ -31,11 +31,13 @@ class DuoNavigationEnv(MultiGridEnv):
         seed=47,
         view_size=1,
         episodic=False,
+        cooperative=True,
     ):
         self.world = World
         self.random_starts = random_starts
         self.random_seed = seed
         self.episodic = episodic
+        self.cooperative = cooperative
 
         agents = []
         for i in agents_index:
@@ -206,8 +208,13 @@ class DuoNavigationEnv(MultiGridEnv):
         # not by making the action that leads to goal.
         done = (self.episodic and self.goal_reached)
 
-        rewards = np.ones(len(actions)) * -1e-1
-        if self.goal_reached: rewards = -rewards
+        if self.cooperative:
+            rewards = np.ones(len(self.agents)) * -1e-1
+            if self.goal_reached: rewards = -rewards
+        else:
+            rewards = np.array([
+                0.1 if np.array_equal(ag.pos, self.goal_pos) else -0.1 for ag in self.agents
+           ])
         return self.state, rewards, done, timeout
 
     
@@ -344,6 +351,7 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
         agents_index = [i for i in range(1, n_agents + 1)]
         max_steps = flags.max_steps
         episodic = flags.episodic
+        cooperative = flags.cooperative
         
 
         super(DuoNavigationGameEnv, self).__init__(
@@ -353,6 +361,7 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
             seed=seed,
             max_steps=max_steps,
             episodic=episodic,
+            cooperative=flags.cooperative,
         )
 
 

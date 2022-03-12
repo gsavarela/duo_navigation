@@ -1,4 +1,5 @@
-# FIXME: I wonder if we could use GYM register here.
+# TODO: add **kwargs to all agents and standartize interface
+# TODO: Refactor and remove unused code.
 # Common interface for different variations of a model.
 from agents.sarsa import SARSATabular, SARSASemiGradient, SARSADifferentialSemiGradient
 from agents.actor_critic import (ActorCriticSemiGradient, ActorCriticDifferentialSemiGradient,
@@ -17,6 +18,10 @@ def get_agent(env, flags):
         return agent_cls(env, alpha=flags.alpha, episodes=flags.episodes) 
     if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticSemiGradient', 'ActorCriticSemiGradientDuo', 'SARSADifferentialSemiGradient'):
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes, explore=flags.explore, decay=flags.decay)
+
+    # Like other group but accepts cooperation.
+    if flags.agent_type in ('ActorCriticSemiGradientDuo',):
+        return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes, explore=flags.explore, decay=flags.decay, cooperative=flags.cooperative)
     if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticTabular'):
         return agent_cls(env, alpha=flags.alpha, beta=flags.beta, zeta=flags.zeta, episodes=flags.episodes, explore=flags.explore)
     # if flags.agent_type == 'SARSASemiGradient':

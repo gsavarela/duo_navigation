@@ -22,7 +22,8 @@ from features import get, label
 from utils import softmax
 
 class ActorCriticSemiGradientDuo(object):
-    def __init__(self, env, alpha=0.3, beta=0.2, gamma=0.98 ,episodes=20, explore=False, decay=True):
+    def __init__(self, env, alpha=0.3, beta=0.2, gamma=0.98 , episodes=20,
+                 explore=False, decay=False, cooperative=True):
 
         # The environment
         self.action_set = env.action_set
@@ -50,6 +51,7 @@ class ActorCriticSemiGradientDuo(object):
         self.explore = explore
         self.epsilon = 1.0
         self.epsilon_step = float(1.2  * (1 - 1e-1) / episodes)
+        self.cooperative = cooperative
         self.reset(seed=0, first=True)
 
     def reset(self, seed=None, first=False):
@@ -69,9 +71,10 @@ class ActorCriticSemiGradientDuo(object):
         '''number of actions per agent'''
         return int(len(self.action_set) ** (1 / self.n_agents))
 
-    @property
+    @cached_property
     def label(self):
-        return f'ActorCritic SG-IL ({label()})'
+        prefix = 'coop.' if self.cooperative else 'indep.'
+        return f'ActorCritic Duo ({prefix}, {label()})'
 
     @property
     def task(self):
