@@ -142,9 +142,9 @@ class ActorCriticSemiGradientDuo(object):
         # performs update loop
         for i in range(self.n_agents):
             if done:
-                self.delta -= self.omega[i] @ x  
+                self.delta[i] -= self.omega[i] @ x  
             else:
-                self.delta += self.omega[i] @ ((self.gamma * y) - x)
+                self.delta[i] += self.omega[i] @ ((self.gamma * y) - x)
 
             # Actor update
             self.omega[i] += self.alpha * self.delta[i] * get(state)
