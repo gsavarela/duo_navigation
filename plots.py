@@ -1,18 +1,16 @@
+import argparse
 from collections import defaultdict
+from functools import reduce
 import json
-from operator import itemgetter
+import os
 from pathlib import Path
 
-import gym
-from gym.envs.registration import register
-
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-
 from utils import pi2str, pos2str, act2str, act2str2, best_actions, q2str
+from utils import str2bool
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 plt.style.use('ggplot')
@@ -24,7 +22,6 @@ SMOOTHING_CURVE_COLOR = (0.33,0.33,0.33)
 
 def snapshot_plot(snapshot_log, img_path):
 
-    episodic = 'mu' not in snapshot_log
     episodes = snapshot_log['episode']
     rewards = snapshot_log['reward']
 
@@ -45,6 +42,7 @@ def snapshot_plot(snapshot_log, img_path):
     snapshot_path = img_path / 'snapshot.json'
     with snapshot_path.open('w') as f:
         json.dump(snapshot_log, f)
+
 # use this only for continuing tasks.
 # episodes is a series with the episode numbers
 def globally_averaged_plot(mus, img_path, episodes):
@@ -261,36 +259,6 @@ def q_values_plot(q_values, results_path, state_actions=[(0, [0]),(1, [0, 3]),(3
 def display_policy(env, agent):
     return display_ac(env, agent)
 
-        
-def display_Q(env, agent):
-    goal_pos = env.goal_pos
-    def bact(x): return best_actions(x, np.array(list(goal_pos)))
-    print(env)
-
-    margin = '#' * 45
-    print(f'{margin} GOAL {margin}')
-    print(f'GOAL: {goal_pos}')
-    print(f'{margin} SARSA {margin}')
-
-    action_set = env.action_set
-    states_positions_gen = env.next_states()
-    while True:
-        try:
-            state, pos = next(states_positions_gen)
-            actions_log = act2str2(action_set[np.argmax(agent.Q[state, :])])
-
-            best_log = ', '.join([act2str2(bact(p)) for p in pos])
-            pos_log = ', '.join([pos2str(p) for p in pos])
-            msg = (f'\t{state}'
-                   f'\t{agent.V[state]:0.3f}'
-                   f'\t{pos_log}'
-                   f'\t{q2str(agent.Q[state, :])}'
-                   f'\t{actions_log}'
-                   f'\t{best_log}')
-            print(msg)
-        except StopIteration:
-            break
-
 def display_ac(env, agent):
     goal_pos = env.goal_pos
     def bact(x):
@@ -302,8 +270,6 @@ def display_ac(env, agent):
         )
     print(env)
 
-
-    action_set = env.action_set
     states_positions_gen = env.next_states()
     margin = '#' * 30
     data = defaultdict(list)
@@ -394,91 +360,117 @@ def validation_plot(rewards):
     plt.ylabel('Accumulated Averaged Rewards.')
     plt.show()
 
-if __name__ == '__main__':
-    import json
-    from pathlib import Path
-    from argparse import Namespace
-    from agents import get_agent
+def get_arguments():
+    parser = argparse.ArgumentParser(
+        description="""
+            This script creates average reward plots for episodes.
+            
+        """
+    )
 
-    # path = Path('data/20220205155519')
-    # path = Path('data/20220205164323')
-    # SARSA Tabular data/20220205175246 
-    # path = Path('data/20220205175246')
-    # SARSA SG 20220205195417
-    # FullyCentralizedAC 20220205171328
+    parser.add_argument('paths', type=str, nargs='+', help='List of paths to experiments.')
+    parser.add_argument('-l','--labels', nargs="+", help='List of experiments\' labels.', required=True)
+    parser.add_argument('-o', '--use_parent_output', nargs=1, default=True, type=str2bool,
+                        help='Uses parent directory (common ancestor) as output folder.', required=False)
 
-    EXPERIMENTS = [
-        # ('SarsaTabular', '20220207043611', True),
-        ('SarsaTabular', 'data/20220205175246', True),
-        ('Centralized A/C', 'data/20220205171612', False),
-        ('SARSA SG', 'data/20220205195417', False),
-        ('FullyCentralized A/C', 'data/20220205171328', False),
-        ('TabularFullyCentralized A/C', 'data/20220205182447', False),
-    ]
+    return parser.parse_args()
 
-    labels = []
-    Ys = []
-    for label, path, episodic in EXPERIMENTS:
+def print_arguments(args, output_folder_path):
 
-        print(f'Experiment ({label}): {path}')
+    print('Arguments (analysis/compare.py):')
+    print('\tExperiments: {0}\n'.format(args.paths))
+    print('\tExperiments labels: {0}\n'.format(args.labels))
+    print('\tOutput folder: {0}\n'.format(output_folder_path))
 
-        labels.append(label)
-        path = Path(path)
-        snapshot_path = Path(path) / 'snapshot.json'
-        with snapshot_path.open('r') as f:
-            snapshot = json.load(f)
+def get_common_path(paths):
+    '''returns the common ancestor path
 
-        config_path = Path(path) / 'config.json'
-        with config_path.open('r') as f: flags = json.load(f)
+    Parameters:
+    ----------
+    * paths: list<pathlib.Path>
+    experiment paths
 
-        # change from training to validation
-        flags['max_steps'] = 100
-        flags['episodic'] = False
-        flags = Namespace(**flags)
+    Returns:
+    --------
+    * pathlib.Path object
+    output folder
+    '''
+    path_parts = map(lambda x: Path(x).parts, paths)
 
-        # Instanciate
-        register(
-            id='duo-navigation-v0',
-            entry_point='env:DuoNavigationGameEnv',
-            kwargs={'flags': flags}
-        )
-        # TODO: Verify why env != agent.env
-        chkpt_num = max([int(p.parent.stem) for p in path.rglob('*chkpt')])
-        env = gym.make('duo-navigation-v0')
-        agent = get_agent(env, flags).load_checkpoint(path, str(chkpt_num))
-        agent.env = env
-        if episodic: agent.epsilon = 0
-
-        #df = display_policy(env, agent)
-        #df.to_csv(path / 'policy.csv', sep='\t')
-        rewards = []
-        for episode in range(100):
-            state = env.reset()
-            agent.reset()
-            actions = agent.act(state)
-
-            episode_rewards = []
-            while True:
-                next_state, next_reward, done, _ = env.step(agent.act(state))
-                
-                episode_rewards.append(np.mean(next_reward))
-                state = next_state
-                if done: break
-            rewards.append(np.cumsum(episode_rewards) / np.arange(1, 101))
-
-        # TODO: LOOP AND ADD LABELS.
-        Y = np.mean(np.stack(rewards), axis=0)
-        Ys.append(Y)
-
-    Y = np.stack(Ys).T
-    fig = plt.figure()
-    fig.set_size_inches(FIGURE_X, FIGURE_Y)
-    X = np.linspace(1, Y.shape[0], Y.shape[0])
-    plt.suptitle(f'Validation Round (N=100)')
-    plt.plot(X,Y, label=labels)
-    plt.xlabel('Timesteps')
-    plt.ylabel('Validation Averaged Rewards.')
-    plt.legend(loc=4)
-    plt.show()
+    def fn(x, y):
+        return tuple([xx for xx, yy in zip(x, y) if xx == yy])
+    common_folder_parts = reduce(fn, path_parts)
+    common_folder_path = Path.cwd().joinpath(*common_folder_parts)
+    return common_folder_path
     
+def main():
 
+    print('\nRUNNING plots benchmark\n')
+
+    args = get_arguments()
+
+    output_folder_path = Path('data/benchmark/')
+    if args.use_parent_output:
+        output_folder_path = get_common_path(args.paths)
+        
+    print_arguments(args, output_folder_path)
+
+    # Prepare output folder.
+    os.makedirs(output_folder_path.as_posix(), exist_ok=True)
+
+
+    dataframes = []
+    for label, exp_path in zip(args.labels, args.paths):
+
+        file_path = Path(exp_path) / 'snapshot.json'
+        with file_path.open('r') as f:
+            snapshot  = json.load(f)
+
+        episode = np.array(snapshot['episode'])
+        reward = np.array(snapshot['reward'])
+        data =  np.vstack([episode, reward]).T
+        df = pd.DataFrame(data) \
+               .groupby(0, as_index=False)\
+               .sum()\
+               .set_index(0)
+
+        # episodes and returns
+        df.columns = [label]
+        dataframes.append(df)
+
+    df = pd.concat(dataframes, axis=1)
+
+    '''Cumulative Summation of Returns(Mean Rewards)'''
+    cs_df = df.copy().cumsum(axis=0)
+    plt.suptitle(f'Cumulative Return')
+    plt.plot(cs_df.index, cs_df.values, label=cs_df.columns.tolist())
+    plt.xlabel('Episodes')
+    plt.ylabel('Cumulative Return')
+    plt.legend(loc=4)
+
+    file_name = output_folder_path / 'cumulative_returns.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = output_folder_path / 'cumulative_returns.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.show()
+
+    '''Cumulative Summation of Returns(Mean Rewards)'''
+    sma_df = df.copy().rolling(50).mean()
+    plt.suptitle(f'Simple Mean Average Return')
+    plt.plot(sma_df.index, sma_df.values, label=sma_df.columns.tolist())
+    plt.xlabel('Episodes')
+    plt.ylabel('Simple Mean Average (M=50)')
+    plt.legend(loc=4)
+
+    file_name = output_folder_path / 'sma_returns.pdf'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    file_name = output_folder_path / 'sma_returns.png'
+    plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
+    plt.show()
+        
+
+
+
+
+if __name__ == '__main__':
+    main()

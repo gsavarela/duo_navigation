@@ -4,6 +4,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import gym
+from gym.envs.registration import register
+import matplotlib.pyplot as plt
 
 import utils
 
@@ -69,6 +72,95 @@ def config2fields(config_path):
     print(df)
 
 
+def main():
+    '''Validation script'''
+    import json
+    from pathlib import Path
+    from argparse import Namespace
+    from agents import get_agent
+
+    # path = Path('data/20220205155519')
+    # path = Path('data/20220205164323')
+    # SARSA Tabular data/20220205175246 
+    # path = Path('data/20220205175246')
+    # SARSA SG 20220205195417
+    # FullyCentralizedAC 20220205171328
+
+    EXPERIMENTS = [
+        # ('SarsaTabular', '20220207043611', True),
+        ('SarsaTabular', 'data/20220205175246', True),
+        ('Centralized A/C', 'data/20220205171612', False),
+        ('SARSA SG', 'data/20220205195417', False),
+        ('FullyCentralized A/C', 'data/20220205171328', False),
+        ('TabularFullyCentralized A/C', 'data/20220205182447', False),
+    ]
+
+    labels = []
+    Ys = []
+    for label, path, episodic in EXPERIMENTS:
+
+        print(f'Experiment ({label}): {path}')
+
+        labels.append(label)
+        path = Path(path)
+        snapshot_path = Path(path) / 'snapshot.json'
+        with snapshot_path.open('r') as f:
+            snapshot = json.load(f)
+
+        config_path = Path(path) / 'config.json'
+        with config_path.open('r') as f: flags = json.load(f)
+
+        # change from training to validation
+        flags['max_steps'] = 100
+        flags['episodic'] = False
+        flags = Namespace(**flags)
+
+        # Instanciate
+        register(
+            id='duo-navigation-v0',
+            entry_point='env:DuoNavigationGameEnv',
+            kwargs={'flags': flags}
+        )
+        # TODO: Verify why env != agent.env
+        chkpt_num = max([int(p.parent.stem) for p in path.rglob('*chkpt')])
+        env = gym.make('duo-navigation-v0')
+        agent = get_agent(env, flags).load_checkpoint(path, str(chkpt_num))
+        agent.env = env
+        if episodic: agent.epsilon = 0
+
+        #df = display_policy(env, agent)
+        #df.to_csv(path / 'policy.csv', sep='\t')
+        rewards = []
+        for episode in range(100):
+            state = env.reset()
+            agent.reset()
+            actions = agent.act(state)
+
+            episode_rewards = []
+            while True:
+                next_state, next_reward, done, _ = env.step(agent.act(state))
+                
+                episode_rewards.append(np.mean(next_reward))
+                state = next_state
+                if done: break
+            rewards.append(np.cumsum(episode_rewards) / np.arange(1, 101))
+
+        # TODO: LOOP AND ADD LABELS.
+        Y = np.mean(np.stack(rewards), axis=0)
+        Ys.append(Y)
+
+    Y = np.stack(Ys).T
+    fig = plt.figure()
+    fig.set_size_inches(FIGURE_X, FIGURE_Y)
+    X = np.linspace(1, Y.shape[0], Y.shape[0])
+    plt.suptitle(f'Validation Round (N=100)')
+    plt.plot(X,Y, label=labels)
+    plt.xlabel('Timesteps')
+    plt.ylabel('Validation Averaged Rewards.')
+    plt.legend(loc=4)
+    plt.show()
+
+
 if __name__ == '__main__':
     from pathlib import Path
     from agents import ActorCriticSemiGradient
@@ -111,3 +203,5 @@ if __name__ == '__main__':
 
     config_path = path / 'config.json'
     config2fields(config_path)
+
+
