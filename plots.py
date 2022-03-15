@@ -286,7 +286,6 @@ def display_ac(env, agent):
             actions_log = act2str2([max_action])
             best_log = act2str2(actions_optimal)
             pos_log = ', '.join([pos2str(p) for p in pos])
-
             data['state'].append(state)
             data['Coord 1'].append(tuple(pos[0]))
             data['Coord 2'].append(tuple(pos[1]))
@@ -303,6 +302,7 @@ def display_ac(env, agent):
             data[f'PI(state, success)'].append(np.round(pr_success, 2))
 
             advantage_log = ','.join([f'{a:0.2f}' for a in advantages])
+
             msg = (f'\t{state}\t{pos_log}'
                    f'\tV({state})={agent.V[state]:0.2f}'
                    f'\t{pi_log}\n'
@@ -370,6 +370,8 @@ def get_arguments():
 
     parser.add_argument('paths', type=str, nargs='+', help='List of paths to experiments.')
     parser.add_argument('-l','--labels', nargs="+", help='List of experiments\' labels.', required=True)
+    parser.add_argument('-t','--subtitle', nargs=1, default='', type=str, 
+                        help='Subtitle to graphs',  required=False)
     parser.add_argument('-o', '--use_parent_output', nargs=1, default=True, type=str2bool,
                         help='Uses parent directory (common ancestor) as output folder.', required=False)
 
@@ -380,6 +382,7 @@ def print_arguments(args, output_folder_path):
     print('Arguments (analysis/compare.py):')
     print('\tExperiments: {0}\n'.format(args.paths))
     print('\tExperiments labels: {0}\n'.format(args.labels))
+    print('\tExperiments subtitle: {0}\n'.format(args.subtitle))
     print('\tOutput folder: {0}\n'.format(output_folder_path))
 
 def get_common_path(paths):
@@ -442,7 +445,10 @@ def main():
 
     '''Cumulative Summation of Returns(Mean Rewards)'''
     cs_df = df.copy().cumsum(axis=0)
-    plt.suptitle(f'Cumulative Return')
+    title = 'Cumulative Return'
+    if len(args.subtitle) > 0: 
+        title = f'{args.subtitle[0]}:{title}' 
+    plt.suptitle(title)
     plt.plot(cs_df.index, cs_df.values, label=cs_df.columns.tolist())
     plt.xlabel('Episodes')
     plt.ylabel('Cumulative Return')
@@ -454,9 +460,12 @@ def main():
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.show()
 
-    '''Cumulative Summation of Returns(Mean Rewards)'''
+    '''Mean Average of Returns(Mean Rewards)'''
     sma_df = df.copy().rolling(50).mean()
-    plt.suptitle(f'Simple Mean Average Return')
+    title = 'Simple Mean Average Return'
+    if len(args.subtitle) > 0: 
+        title = f'{args.subtitle[0]}:{title}' 
+    plt.suptitle(title)
     plt.plot(sma_df.index, sma_df.values, label=sma_df.columns.tolist())
     plt.xlabel('Episodes')
     plt.ylabel('Simple Mean Average (M=50)')
@@ -467,10 +476,6 @@ def main():
     file_name = output_folder_path / 'sma_returns.png'
     plt.savefig(file_name, bbox_inches='tight', pad_inches=0)
     plt.show()
-        
-
-
-
 
 if __name__ == '__main__':
     main()

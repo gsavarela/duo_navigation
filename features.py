@@ -66,37 +66,50 @@ class Features:
         onehot = np.hstack(indicators)
         return onehot
 
-    def set(self, features, n_features=None, n_agents=2, width=2, height=2, **kwargs):
+    def set(self, features, partial_observability=False, n_agents=2, width=2, height=2, **kwargs):
         self.label = features
+        self.partial_observability = partial_observability
         self.n_states = (width * height) ** n_agents
-        self.n_features = self.n_states
+
+        if self.partial_observability:
+            self.n_features = (width * height)
+        else:
+            self.n_features = self.n_states
         
 
         # THis is here for phi and varphi properties.
         self.action_set = action_set(n_agents)
         self.width = width
         self.height = height
+        self.n_agents = n_agents
 
 
         rank_column = 0
         rank_row = 0
         # Change this for tests
-        while rank_column != self.n_states and rank_row != self.n_states:
+        while rank_column != self.n_features and rank_row != self.n_features:
+
             self.features = np.zeros((self.n_features, self.n_features), dtype=float)
             if 'onehot' in features:
-                # this features belong to the state only
-                # self.features += np.tile(np.eye(self.n_features), (n_agents, 1, 1)).T
                 self.features += np.eye(self.n_features)
 
             if 'uniform' in features:
-                # this features belong to the state only
                 self.features += uniform(size=self.features.shape)
+
             self.features = l2_norm(self.features)
+
             rank_column = np.linalg.matrix_rank(self.features)
             rank_row = np.linalg.matrix_rank(self.features.T)
 
     def get(self, state):
-        return self.features[state]
+
+        index = state
+        if self.partial_observability:
+            index = [*map(coord2index, state2pos(state))]
+        ret = self.features[index, :] 
+        return ret 
+
+
         
         
 def l2_norm(features):
@@ -104,6 +117,6 @@ def l2_norm(features):
     orig_shape = features.shape
 
     # vector norm over axis 1
-    features = features / np.linalg.norm(features, keepdims=True, axis=1)
+    features = features / np.linalg.norm(features, keepdims=True, axis=-1)
 
     return features.reshape(orig_shape)

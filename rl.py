@@ -44,9 +44,6 @@ parser.add_argument('-c', '--cooperative', default=True, type=str2bool,
                 if True reward is the same for both players.
                 if False each player earns it\'s own reward''')
 
-parser.add_argument('-z', '--zeta', default=0.1, type=float,
-        help='''Reward attenuation for continuing tasks.''')
-
 parser.add_argument('-d', '--decay', default=False, type=str2bool,
         help='''Exponential decay of actor and critic parameters:
                 Replaces `alpha` and `beta` parameters.''')
@@ -54,6 +51,9 @@ parser.add_argument('-d', '--decay', default=False, type=str2bool,
 parser.add_argument('-D', '--debug', default=True, type=str2bool,
         help='''Makes step_count accesses to hard to approximate functions, e.g, 
                 V, Q and PI. Set to false for considerably less computing time.''')
+
+parser.add_argument('-E', '--episodic', default=True, type=str2bool,
+        help='''Controls the nature of the task as continuing or episodic.''')
 
 parser.add_argument('-e', '--episodes', default=1, type=int,
         help='''Regulates the number of re-starts after the
@@ -64,8 +64,6 @@ parser.add_argument('-f', '--features', default='onehot', type=str,
         choices=['onehot', 'onehot+uniform', 'uniform'], 
         help='''Valid For agents with function approximation.''')
 
-parser.add_argument('-E', '--episodic', default=True, type=str2bool,
-        help='''Controls the nature of the task as continuing or episodic.''')
 
 parser.add_argument('-m', '--max_steps', default=10000, type=int,
         help='''Regulates the maximum number of steps.''')
@@ -73,6 +71,10 @@ parser.add_argument('-m', '--max_steps', default=10000, type=int,
 parser.add_argument('-n', '--n_agents', default=2, choices=[1, 2], type=int,
         help='''The number of agents on the grid:
                 Should be either `1` or `2`. Use `1` for debugging.''')
+
+parser.add_argument('-o', '--partial_observability', default=False, type=str2bool,
+        help='''Regulates if the feature encodes both players positions or 
+                only its own position. Only effective on DUO option''')
 
 parser.add_argument('-s', '--size', default=3, type=int,
         help='''The side of the visible square grid.''')
@@ -90,6 +92,9 @@ parser.add_argument('-R', '--render', default=False, type=str2bool,
 parser.add_argument('-x', '--explore', default=True, type=str2bool,
         help='''Use temperature for continuing tasks or epsilon-greedy.''')
 
+parser.add_argument('-z', '--zeta', default=0.1, type=float,
+        help='''Reward attenuation for continuing tasks.''')
+
 def print_arguments(opts, timestamp):
 
     print('Arguments Duo Navigation Game:')
@@ -100,7 +105,9 @@ def print_arguments(opts, timestamp):
 def validate_arguments(opts):
     assert (opts.agent_type in ('SARSATabular', 'SARSASemiGradient', 'ActorCriticSemiGradient', 'ActorCriticSemiGradientDuo') and opts.episodic) or \
         (opts.agent_type in ('SARSADifferentialSemiGradient', 'ActorCriticDifferentialSemiGradient', 'ActorCriticTabular') and not opts.episodic)
-    # or \ (opts.agent_type in ('CentralizedActorCritic', 'Optimal','FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'SARSASemiGradient', 'TabularCentralizedActorCritic') and not opts.episodic)
+
+    if opts.partial_observability:
+        assert opts.agent_type == 'ActorCriticSemiGradientDuo'
 
 def main(flags, timestamp):
     # Instanciate environment and agent
@@ -113,16 +120,16 @@ def main(flags, timestamp):
 
     features = Features().set(
         flags.features,
+        partial_observability=flags.partial_observability,
         n_agents=len(env.agents),
         width=env.width - 2,
-        height=env.height - 2
+        height=env.height - 2,
     )
     agent = get_agent(env, flags) 
-
+    
     # Loop control and execution flags.
     render = flags.render
     episodes = flags.episodes
-    n_agents = flags.n_agents
     episodic = flags.episodic
     debug = flags.debug
 
