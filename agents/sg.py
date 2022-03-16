@@ -6,21 +6,25 @@
 
     References:
     -----------
-    * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
-    * Zhang, et al. 2018 `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
+    * Sutton and Barto, 2018:
+        `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
+    * Zhang, et al. 2018:
+        `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
 """
-from pathlib import Path
 from functools import lru_cache
+from typing import List, Tuple
 
-import dill
 import numpy as np
 from numpy.random import choice
 
 from features import get, label
 from utils import softmax
 
+from agents.common import Serializable
+from agents.interfaces import AgentInterface
 
-class ActorCriticSemiGradient(object):
+
+class ActorCriticSemiGradient(Serializable, AgentInterface):
     def __init__(
         self,
         env,
@@ -61,6 +65,7 @@ class ActorCriticSemiGradient(object):
         self.epsilon_step = float(1.2 * (1 - 1e-1) / episodes)
         self.reset(seed=0, first=True)
 
+    # TODO: those methods should go to the interface.
     def reset(self, seed=None, first=False):
         self.discount = 1.0
 
@@ -85,32 +90,40 @@ class ActorCriticSemiGradient(object):
     def tau(self):
         return float(10 * self.epsilon if self.explore else 1.0)
 
+    """
+        AgentInterface: Implementation Methods and Properties.
+    """
     @property
-    def V(self):
-        return self._cache_V(self.step_count)
-
-    @lru_cache(maxsize=1)
-    def _cache_V(self, step_count):
-        return np.array([get(state) @ self.omega for state in range(self.n_states)])
-
-    def PI(self, state):
-        return self._cache_PIS(state, self.step_count).tolist()
-
-    @lru_cache(maxsize=1)
-    def _cache_PIS(self, state, step_count):
-        return softmax(self.theta @ (get(state) / self.tau))
+    def A(self) -> np.ndarray:
+        ret = []
+        for state in range(self.n_states):
+            ret.append(get(state) @ self.theta.T / self.tau)
+        return np.vstack(ret)
 
     @property
-    def A(self):
-        return np.stack(
-            [(get(state) @ self.theta.T / self.tau) for state in range(self.n_states)]
-        )
+    def PI(self) -> List[List[float]]:
+        ret = []
+        for state in range(self.n_states):
+            ret.append(self._PI(state).tolist())
+        return ret
 
-    def act(self, state):
-        cur = choice(len(self.action_set), p=self.PI(state))
+    @property
+    def V(self) -> np.ndarray:
+        return self._V(self.step_count)
+
+    def act(self, state: int) -> Tuple[int]:
+        cur = choice(len(self.action_set), p=self._PI(state))
         return self.action_set[cur]
 
-    def update(self, state, actions, next_rewards, next_state, next_actions, done):
+    def update(
+        self,
+        state: int,
+        actions: Tuple[int],
+        next_rewards: np.ndarray,
+        next_state: int,
+        next_actions: Tuple[int],
+        done: bool,
+    ) -> None:
         cur = self.action_set.index(actions)
 
         if done:
@@ -132,23 +145,18 @@ class ActorCriticSemiGradient(object):
 
     def psi(self, state, action):
         X = np.tile(get(state) / self.tau, (len(self.action_set), 1))
-        P = -np.tile(self.PI(state), (self.theta.shape[0], 1)).T
+        P = -np.tile(self._PI(state), (self.theta.shape[0], 1)).T
 
         P[action] += 1
         return P * X
 
-    def save_checkpoints(self, chkpt_dir_path, chkpt_num):
-        class_name = type(self).__name__.lower()
-        file_path = Path(chkpt_dir_path) / chkpt_num / f"{class_name}.chkpt"
-        file_path.parent.mkdir(exist_ok=True)
-        with open(file_path, mode="wb") as f:
-            dill.dump(self, f)
+    @lru_cache(maxsize=1)
+    def _V(self, step_count: int) -> np.ndarray:
+        return np.array([get(state) @ self.omega for state in range(self.n_states)])
 
-    @classmethod
-    def load_checkpoint(cls, chkpt_dir_path, chkpt_num):
-        class_name = cls.__name__.lower()
-        file_path = Path(chkpt_dir_path) / str(chkpt_num) / f"{class_name}.chkpt"
-        with file_path.open(mode="rb") as f:
-            new_instance = dill.load(f)
+    def _PI(self, state: int) -> np.ndarray:
+        return self._pi(state, self.step_count)
 
-        return new_instance
+    @lru_cache(maxsize=1)
+    def _pi(self, state: int, step_count: int) -> np.ndarray:
+        return softmax(self.theta @ (get(state) / self.tau))

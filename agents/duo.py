@@ -10,19 +10,21 @@
     * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
     * Zhang, et al. 2018 `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
 """
-from pathlib import Path
 from functools import lru_cache
 from cached_property import cached_property
+from typing import List, Tuple
 
-import dill
 import numpy as np
 from numpy.random import rand, choice
 
 from features import get, label
 from utils import softmax
 
+from agents.common import Serializable
+from agents.interfaces import AgentInterface
 
-class ActorCriticSemiGradientDuo(object):
+
+class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
     def __init__(
         self,
         env,
@@ -102,53 +104,12 @@ class ActorCriticSemiGradientDuo(object):
     def tau(self):
         return float(10 * self.epsilon if self.explore else 1.0)
 
-    # Do not use this property within this class
-    @property
-    def V(self):
-        return self._cache_V(self.step_count)
-
-    @lru_cache(maxsize=1)
-    def _cache_V(self, step_count):
-        if self.partial_observability:
-            ret = np.array(
-                [
-                    np.mean(np.sum(self.omega * get(state), axis=1), axis=0)
-                    for state in range(self.n_states)
-                ]
-            )
-        else:
-            ret = np.array(
-                [
-                    np.mean(self.omega @ get(state), axis=0)
-                    for state in range(self.n_states)
-                ]
-            )
-        return ret
-
-    def PI(self, state):
-        _PI = self._cache_PIS(state, self.step_count)
-        return _PI
-
-    def _pi(self, state, i):
-        x = get(state) / self.tau
-        if self.partial_observability:
-            return softmax(self.theta[i] @ x[i])
-        else:
-            return softmax(self.theta[i] @ x)
-
-    @lru_cache(maxsize=1)
-    def _cache_PIS(self, state, step_count):
-        if self.n_agents == 1:
-            self._pi(state, 0)
-        # For two agents
-        ret = []
-        for p in self._pi(state, 1):
-            for q in self._pi(state, 0):
-                ret.append(q * p)
-        return ret
+    """
+        AgentInterface: Implementation Methods and Properties.
+    """
 
     @property
-    def A(self):
+    def A(self) -> np.ndarray:
         ret = []
         for state in range(self.n_states):
             x_s = get(state) / self.tau
@@ -170,13 +131,35 @@ class ActorCriticSemiGradientDuo(object):
             ret.append(a_s)
         return np.stack(ret)
 
-    def act(self, state):
-        cur = [
-            choice(self.n_actions, p=self._pi(state, i)) for i in range(self.n_agents)
-        ]
-        return tuple(cur)
+    # Do not use this property within this class
+    @property
+    def V(self) -> np.ndarray:
+        return self._V(self.step_count)
 
-    def update(self, state, actions, next_rewards, next_state, next_actions, done):
+    @property
+    def PI(self) -> List[List[float]]:
+        ret = []
+        for state in range(self.n_states):
+            ret.append(self._PI(state))
+        return ret
+
+    def act(self, state: int) -> Tuple[int]:
+        # Tuple
+        ret = []
+        for i in range(self.n_agents):
+            prob = self._pi(state, i, self.step_count)
+            ret.append(choice(self.n_actions, p=prob))
+        return tuple(ret)
+
+    def update(
+        self,
+        state: int,
+        actions: Tuple[int],
+        next_rewards: np.ndarray,
+        next_state: int,
+        next_actions: Tuple[int],
+        done: bool,
+    ) -> None:
         # get arguments
         self.delta = next_rewards.tolist()
 
@@ -226,22 +209,36 @@ class ActorCriticSemiGradientDuo(object):
         if self.partial_observability:
             x = x[i]
         X = np.tile(x, (self.n_actions, 1))
-        P = -np.tile(self._pi(state, i), (self.theta[i].shape[0], 1)).T
+        P = -np.tile(self._pi(state, i, self.step_count), (self.theta[i].shape[0], 1)).T
         P[action] += 1
         return P @ X
 
-    def save_checkpoints(self, chkpt_dir_path, chkpt_num):
-        class_name = type(self).__name__.lower()
-        file_path = Path(chkpt_dir_path) / chkpt_num / f"{class_name}.chkpt"
-        file_path.parent.mkdir(exist_ok=True)
-        with open(file_path, mode="wb") as f:
-            dill.dump(self, f)
+    @lru_cache(maxsize=1)
+    def _V(self, step_count:int) -> np.ndarray:
+        ret = []
+        for state in range(self.n_states):
+            if self.partial_observability:
+                vs = np.mean(np.sum(self.omega * get(state), axis=1), axis=0)
+            else:
+                vs = np.mean(self.omega @ get(state), axis=0)
+            ret.append(vs)
+        return np.array(ret)
 
-    @classmethod
-    def load_checkpoint(cls, chkpt_dir_path, chkpt_num):
-        class_name = cls.__name__.lower()
-        file_path = Path(chkpt_dir_path) / str(chkpt_num) / f"{class_name}.chkpt"
-        with file_path.open(mode="rb") as f:
-            new_instance = dill.load(f)
+    def _PI(self, state: int) -> List[float]:
+        if self.n_agents == 1:
+            self._pi(state, 0, self.step_count)
+        # For two agents
+        ret = []
+        for p in self._pi(state, 1, self.step_count):
+            for q in self._pi(state, 0, self.step_count):
+                ret.append(q * p)
+        return ret
 
-        return new_instance
+    # def _pi(self, state, i):
+    @lru_cache(maxsize=1)
+    def _pi(self, state: int, i: int, step_count: int) -> np.ndarray:
+        x = get(state) / self.tau
+        if self.partial_observability:
+            return softmax(self.theta[i] @ x[i])
+        else:
+            return softmax(self.theta[i] @ x)
