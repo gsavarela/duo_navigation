@@ -1,10 +1,10 @@
 '''DuoNavigationGame: Team navigation game for Reinforcement Learning.'''
+
 import time
 from itertools import product
 from operator import itemgetter
 
 import numpy as np
-from numpy.random import uniform
 from cached_property import cached_property
 
 import gym
@@ -14,6 +14,8 @@ from env.duogrid import Agent, Grid, Goal, MultiGridEnv, World
 from env.duogrid import NavigationActions
 
 from utils import action_set, pos2state
+
+N_PLAYERS = 2
 
 class DuoNavigationEnv(MultiGridEnv):
     """
@@ -345,10 +347,9 @@ class DuoNavigationGameEnv(DuoNavigationEnv):
 
         # Gather enviroment variables
         size = flags.size + 2
-        n_agents = flags.n_agents
         random_starts = flags.random_starts 
         seed = flags.seed
-        agents_index = [i for i in range(1, n_agents + 1)]
+        agents_index = [i for i in range(1, N_PLAYERS + 1)]
         max_steps = flags.max_steps
         episodic = flags.episodic
         cooperative = flags.cooperative

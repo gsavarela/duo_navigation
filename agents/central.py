@@ -24,6 +24,7 @@ from utils import softmax
 from agents.common import Serializable
 from agents.interfaces import AgentInterface
 
+N_PLAYERS = 2
 
 class ActorCriticCentral(Serializable, AgentInterface):
     def __init__(
@@ -41,11 +42,9 @@ class ActorCriticCentral(Serializable, AgentInterface):
         self.action_set = env.action_set
 
         # Constants
-        self.n_agents = len(env.agents)
         self.n_states = env.n_states
-        assert self.n_agents < 3
+        assert N_PLAYERS == 2
         n_features = self.n_states
-        self.n_joint_actions = len(env.action_set)
 
         # Parameters
         # The feature are state-value function features, i.e,

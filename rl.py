@@ -55,15 +55,6 @@ parser.add_argument(
                 Actor learning rate. """,
 )
 
-parser.add_argument(
-    "-c",
-    "--cooperative",
-    default=True,
-    type=str2bool,
-    help="""Reward type:
-                if True reward is the same for both players.
-                if False each player earns it\'s own reward""",
-)
 
 parser.add_argument(
     "-d",
@@ -117,25 +108,6 @@ parser.add_argument(
     default=10000,
     type=int,
     help="""Regulates the maximum number of steps.""",
-)
-
-parser.add_argument(
-    "-n",
-    "--n_agents",
-    default=2,
-    choices=[1, 2],
-    type=int,
-    help="""The number of agents on the grid:
-                Should be either `1` or `2`. Use `1` for debugging.""",
-)
-
-parser.add_argument(
-    "-o",
-    "--partial_observability",
-    default=False,
-    type=str2bool,
-    help="""Regulates if the feature encodes both players positions or 
-                only its own position. Only effective on DUO option""",
 )
 
 parser.add_argument(
@@ -194,6 +166,9 @@ def print_arguments(opts, timestamp):
 
 def main(flags, timestamp):
     # Instanciate environment and agent
+    flags.cooperative = flags.agent_type in ("Central", "JALs")
+    flags.partial_observability = flags.agent_type in ("ILs",)
+
     register(
         id="duo-navigation-v0",
         entry_point="env:DuoNavigationGameEnv",
@@ -204,7 +179,6 @@ def main(flags, timestamp):
     Features().set(
         flags.features,
         partial_observability=flags.partial_observability,
-        n_agents=len(env.agents),
         width=env.width - 2,
         height=env.height - 2,
     )

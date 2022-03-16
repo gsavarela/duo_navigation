@@ -26,6 +26,7 @@ from utils import softmax
 from agents.common import Serializable
 from agents.interfaces import AgentInterface
 
+N_PLAYERS = 2
 
 class ActorCriticILs(Serializable, AgentInterface):
     def __init__(
@@ -43,21 +44,20 @@ class ActorCriticILs(Serializable, AgentInterface):
         self.action_set = env.action_set
 
         # Constants
-        self.n_agents = len(env.agents)
         self.n_states = env.n_states
         self.gamma = gamma
         self.explore = explore
         self.decay = decay
 
-        assert self.n_agents < 3
+        assert N_PLAYERS == 2
         self.n_features = (env.width - 2) * (env.height - 2)
 
         # Parameters
         # The feature are state-value function features, i.e,
         # the generalize w.r.t the actions.
         # LFA
-        self.omega = np.zeros((self.n_agents, self.n_features))
-        self.theta = np.zeros((self.n_agents, self.n_actions, self.n_features))
+        self.omega = np.zeros((N_PLAYERS, self.n_features))
+        self.theta = np.zeros((N_PLAYERS, self.n_actions, self.n_features))
 
         # Loop control
         self.step_count = 0
@@ -83,7 +83,7 @@ class ActorCriticILs(Serializable, AgentInterface):
     @cached_property
     def n_actions(self):
         """number of actions per agent"""
-        return int(len(self.action_set) ** (1 / self.n_agents))
+        return int(len(self.action_set) ** (1 / N_PLAYERS))
 
     @cached_property
     def label(self):
@@ -103,19 +103,17 @@ class ActorCriticILs(Serializable, AgentInterface):
 
     @property
     def A(self) -> np.ndarray:
+        assert N_PLAYERS == 2
         ret = []
         for state in range(self.n_states):
             x_s = get(state) / self.tau
-            if self.n_agents == 1:
-                a_s = self.theta[0] @ x_s  # yields 4
-            else:  # n_agent == 2
-                a_s = []  # yields 16
-                for u in range(self.n_actions):
-                    for v in range(self.n_actions):
-                        a_s.append(
-                            self.theta[0, v, :] @ x_s[0]
-                            + self.theta[1, u, :] @ x_s[1]
-                        )
+            a_s = []  # yields 16
+            for u in range(self.n_actions):
+                for v in range(self.n_actions):
+                    a_s.append(
+                        self.theta[0, v, :] @ x_s[0]
+                        + self.theta[1, u, :] @ x_s[1]
+                    )
             ret.append(a_s)
         return np.stack(ret)
 
@@ -134,7 +132,7 @@ class ActorCriticILs(Serializable, AgentInterface):
     def act(self, state: int) -> Tuple[int]:
         # Tuple
         ret = []
-        for i in range(self.n_agents):
+        for i in range(N_PLAYERS):
             prob = self._pi(state, i, self.step_count)
             ret.append(choice(self.n_actions, p=prob))
         return tuple(ret)
@@ -155,7 +153,7 @@ class ActorCriticILs(Serializable, AgentInterface):
         y = get(next_state)
 
         # performs update loop
-        for i in range(self.n_agents):
+        for i in range(N_PLAYERS):
             if done:
                 self.delta[i] -= self.omega[i] @ x[i]
             else:
@@ -190,9 +188,7 @@ class ActorCriticILs(Serializable, AgentInterface):
         return np.array(ret)
 
     def _PI(self, state: int) -> List[float]:
-        if self.n_agents == 1:
-            self._pi(state, 0, self.step_count)
-        # For two agents
+        assert N_PLAYERS == 2
         ret = []
         for p in self._pi(state, 1, self.step_count):
             for q in self._pi(state, 0, self.step_count):

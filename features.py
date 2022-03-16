@@ -17,7 +17,7 @@ def label():
 
 WIDTH = 2
 HEIGHT = 2
-N_AGENTS = 2
+N_PLAYERS = 2
 N_ACTIONS = 4
 
 
@@ -29,10 +29,10 @@ class Features:
             cls._instance = super(Features, cls).__new__(cls)
             np.random.seed(0)
             self = cls._instance
-            self.action_set = action_set(N_AGENTS)
+            self.action_set = action_set(N_PLAYERS)
 
-            n_joint_actions = N_ACTIONS**N_AGENTS
-            self.n_states = (WIDTH * HEIGHT) ** N_AGENTS
+            n_joint_actions = N_ACTIONS**N_PLAYERS
+            self.n_states = (WIDTH * HEIGHT) ** N_PLAYERS
 
             self.n_phi = (self.n_states, n_joint_actions, 10)
             self.n_critic = 10
@@ -44,7 +44,7 @@ class Features:
             # self.phi = self.phi / np.abs(self.phi).sum(keepdims=True, axis=-1)
 
             self.n_actor = 5
-            self.n_varphi = (self.n_states, N_ACTIONS, N_AGENTS, self.n_actor)
+            self.n_varphi = (self.n_states, N_ACTIONS, N_PLAYERS, self.n_actor)
             self.varphi = uniform(size=self.n_varphi)
             # self.varphi = self.varphi / np.abs(self.varphi).sum(keepdims=True, axis=-1)
 
@@ -73,14 +73,13 @@ class Features:
         self,
         features,
         partial_observability=False,
-        n_agents=2,
         width=2,
         height=2,
         **kwargs
     ):
         self.label = features
         self.partial_observability = partial_observability
-        self.n_states = (width * height) ** n_agents
+        self.n_states = (width * height) ** N_PLAYERS
 
         if self.partial_observability:
             self.n_features = width * height
@@ -88,10 +87,10 @@ class Features:
             self.n_features = self.n_states
 
         # THis is here for phi and varphi properties.
-        self.action_set = action_set(n_agents)
+        self.action_set = action_set(N_PLAYERS)
         self.width = width
         self.height = height
-        self.n_agents = n_agents
+        self.N_PLAYERS = N_PLAYERS
 
         rank_column = 0
         rank_row = 0
