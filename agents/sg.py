@@ -1,26 +1,36 @@
-'''One-step ActorCritic For Episodic Tasks.
+"""One-step ActorCritic For Episodic Tasks.
 
     * Episodic tasks
     * V function approximation.
     * Linear function approximation
-    
+
     References:
     -----------
     * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
     * Zhang, et al. 2018 `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
-''' 
+"""
 from pathlib import Path
 from functools import lru_cache
 
 import dill
 import numpy as np
-from numpy.random import rand, choice
+from numpy.random import choice
 
 from features import get, label
 from utils import softmax
 
+
 class ActorCriticSemiGradient(object):
-    def __init__(self, env, alpha=0.3, beta=0.2, gamma=0.98 ,episodes=20, explore=False, decay=True):
+    def __init__(
+        self,
+        env,
+        alpha=0.3,
+        beta=0.2,
+        gamma=0.98,
+        episodes=20,
+        explore=False,
+        decay=True,
+    ):
 
         # The environment
         self.action_set = env.action_set
@@ -29,9 +39,9 @@ class ActorCriticSemiGradient(object):
         self.n_agents = len(env.agents)
         self.n_states = env.n_states
         assert self.n_agents < 3
-        n_features =  self.n_states
+        n_features = self.n_states
         self.n_joint_actions = len(env.action_set)
-        
+
         # Parameters
         # The feature are state-value function features, i.e,
         # the generalize w.r.t the actions.
@@ -48,7 +58,7 @@ class ActorCriticSemiGradient(object):
         self.gamma = gamma
         self.explore = explore
         self.epsilon = 1.0
-        self.epsilon_step = float(1.2  * (1 - 1e-1) / episodes)
+        self.epsilon_step = float(1.2 * (1 - 1e-1) / episodes)
         self.reset(seed=0, first=True)
 
     def reset(self, seed=None, first=False):
@@ -65,11 +75,11 @@ class ActorCriticSemiGradient(object):
 
     @property
     def label(self):
-        return f'ActorCritic SG ({label()})'
+        return f"ActorCritic SG ({label()})"
 
     @property
     def task(self):
-        return 'episodic'
+        return "episodic"
 
     @property
     def tau(self):
@@ -78,27 +88,24 @@ class ActorCriticSemiGradient(object):
     @property
     def V(self):
         return self._cache_V(self.step_count)
-    
+
     @lru_cache(maxsize=1)
     def _cache_V(self, step_count):
-        return np.array([
-            get(state) @ self.omega for state in range(self.n_states)
-        ])
+        return np.array([get(state) @ self.omega for state in range(self.n_states)])
 
     def PI(self, state):
-        return self._cache_PIS(state, self.step_count).tolist() 
+        return self._cache_PIS(state, self.step_count).tolist()
 
     @lru_cache(maxsize=1)
     def _cache_PIS(self, state, step_count):
-        return softmax(self.theta @ (get(state)/ self.tau))
+        return softmax(self.theta @ (get(state) / self.tau))
 
     @property
     def A(self):
-        return np.stack([
-            (get(state) @ self.theta.T / self.tau) for state in range(self.n_states)
-        ])
+        return np.stack(
+            [(get(state) @ self.theta.T / self.tau) for state in range(self.n_states)]
+        )
 
-    
     def act(self, state):
         cur = choice(len(self.action_set), p=self.PI(state))
         return self.action_set[cur]
@@ -108,17 +115,18 @@ class ActorCriticSemiGradient(object):
 
         if done:
             self.delta = np.mean(next_rewards) - (get(state) @ self.omega)
-                
-        else:
-            self.delta = np.mean(next_rewards) + \
-                    ((self.gamma * get(next_state)) - get(state)) @ self.omega
 
+        else:
+            self.delta = (
+                np.mean(next_rewards)
+                + ((self.gamma * get(next_state)) - get(state)) @ self.omega
+            )
 
         # Actor update
         self.omega += self.alpha * self.delta * get(state)
 
         # Critic update
-        self.theta += self.beta *  self.discount * self.delta * self.psi(state, cur)
+        self.theta += self.beta * self.discount * self.delta * self.psi(state, cur)
         self.discount *= self.gamma
         self.step_count += 1
 
@@ -131,16 +139,16 @@ class ActorCriticSemiGradient(object):
 
     def save_checkpoints(self, chkpt_dir_path, chkpt_num):
         class_name = type(self).__name__.lower()
-        file_path = Path(chkpt_dir_path) / chkpt_num / f'{class_name}.chkpt'  
+        file_path = Path(chkpt_dir_path) / chkpt_num / f"{class_name}.chkpt"
         file_path.parent.mkdir(exist_ok=True)
-        with open(file_path, mode='wb') as f:
+        with open(file_path, mode="wb") as f:
             dill.dump(self, f)
-        
+
     @classmethod
     def load_checkpoint(cls, chkpt_dir_path, chkpt_num):
         class_name = cls.__name__.lower()
-        file_path = Path(chkpt_dir_path) / str(chkpt_num) / f'{class_name}.chkpt'  
-        with file_path.open(mode='rb') as f:
+        file_path = Path(chkpt_dir_path) / str(chkpt_num) / f"{class_name}.chkpt"
+        with file_path.open(mode="rb") as f:
             new_instance = dill.load(f)
 
         return new_instance
