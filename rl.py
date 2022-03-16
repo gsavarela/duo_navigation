@@ -1,13 +1,11 @@
 import argparse
 from datetime import datetime
 from collections import defaultdict, Counter
-from copy import deepcopy
 import json
 from pathlib import Path
 import time
 
 from env import make, register
-import numpy as np
 
 from plots import display_policy, snapshot_plot
 from logs import snapshot_log, snapshot_state_actions_log
@@ -17,7 +15,7 @@ from features import Features
 
 
 from agents import get_agent
-from agents import __all__ as AGENT_TYPES
+from agents import AGENT_TYPES
 
 parser = argparse.ArgumentParser(
     description="""
@@ -194,20 +192,6 @@ def print_arguments(opts, timestamp):
         print(f"\t{k}: {v}")
 
 
-def validate_arguments(opts):
-    assert (
-        opts.agent_type
-        in (
-            "ActorCriticSemiGradient",
-            "ActorCriticSemiGradientDuo",
-        )
-        and opts.episodic
-    )
-
-    if opts.partial_observability:
-        assert opts.agent_type == "ActorCriticSemiGradientDuo"
-
-
 def main(flags, timestamp):
     # Instanciate environment and agent
     register(
@@ -305,5 +289,4 @@ if __name__ == "__main__":
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     print_arguments(flags, timestamp)
 
-    validate_arguments(flags)
     main(flags, timestamp)

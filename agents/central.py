@@ -1,8 +1,9 @@
 """One-step ActorCritic For Episodic Tasks.
 
-    * Episodic tasks
+    * Episodic tasks.
     * V function approximation.
-    * Linear function approximation
+    * Linear function approximation.
+    * Semi-gradient actor critic.
 
     References:
     -----------
@@ -24,7 +25,7 @@ from agents.common import Serializable
 from agents.interfaces import AgentInterface
 
 
-class ActorCriticSemiGradient(Serializable, AgentInterface):
+class ActorCriticCentral(Serializable, AgentInterface):
     def __init__(
         self,
         env,

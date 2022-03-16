@@ -1,21 +1,24 @@
 """One-step ActorCritic For Episodic Tasks.
 
+    * ILs: Independent Learners
     * Episodic tasks
-    * Fully cooperative learners with full state observability
+    * Solve a 2-MDP: only knows its state.
     * Each agent learns how to act independently.
     * Linear function approximation
     
     References:
     -----------
-    * Sutton and Barto `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
-    * Zhang, et al. 2018 `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
+    * Sutton and Barto 2018
+        `Introduction to Reinforcement Learning 2nd Edition` (pg 333).
+    * Zhang, et al. 2018
+        `Fully Decentralized Multi-Agent Reinforcement Learning with Networked Agents.`
 """
 from functools import lru_cache
 from cached_property import cached_property
 from typing import List, Tuple
 
 import numpy as np
-from numpy.random import rand, choice
+from numpy.random import choice
 
 from features import get, label
 from utils import softmax
@@ -24,7 +27,7 @@ from agents.common import Serializable
 from agents.interfaces import AgentInterface
 
 
-class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
+class ActorCriticILs(Serializable, AgentInterface):
     def __init__(
         self,
         env,
@@ -34,8 +37,6 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
         episodes=20,
         explore=False,
         decay=False,
-        cooperative=True,
-        partial_observability=False,
     ):
 
         # The environment
@@ -44,17 +45,12 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
         # Constants
         self.n_agents = len(env.agents)
         self.n_states = env.n_states
-        self.cooperative = cooperative
-        self.partial_observability = partial_observability
         self.gamma = gamma
         self.explore = explore
         self.decay = decay
 
         assert self.n_agents < 3
-        if self.partial_observability:
-            self.n_features = (env.width - 2) * (env.height - 2)
-        else:
-            self.n_features = self.n_states
+        self.n_features = (env.width - 2) * (env.height - 2)
 
         # Parameters
         # The feature are state-value function features, i.e,
@@ -91,10 +87,7 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
 
     @cached_property
     def label(self):
-        prefix = "coop." if self.cooperative else "indep."
-        if self.partial_observability:
-            prefix = f"{prefix}+partial_observability"
-        return f"ActorCritic Duo ({prefix}, {label()})"
+        return f"ActorCriticILs ({label()})"
 
     @property
     def task(self):
@@ -119,15 +112,10 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
                 a_s = []  # yields 16
                 for u in range(self.n_actions):
                     for v in range(self.n_actions):
-                        if self.partial_observability:
-                            a_s.append(
-                                self.theta[0, v, :] @ x_s[0]
-                                + self.theta[1, u, :] @ x_s[1]
-                            )
-                        else:
-                            a_s.append(
-                                self.theta[0, v, :] @ x_s + self.theta[1, u, :] @ x_s
-                            )
+                        a_s.append(
+                            self.theta[0, v, :] @ x_s[0]
+                            + self.theta[1, u, :] @ x_s[1]
+                        )
             ret.append(a_s)
         return np.stack(ret)
 
@@ -168,47 +156,27 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
 
         # performs update loop
         for i in range(self.n_agents):
-            if self.partial_observability:
-                if done:
-                    self.delta[i] -= self.omega[i] @ x[i]
-                else:
-                    self.delta[i] += self.omega[i] @ ((self.gamma * y[i]) - x[i])
+            if done:
+                self.delta[i] -= self.omega[i] @ x[i]
             else:
-                if done:
-                    self.delta[i] -= self.omega[i] @ x
-                else:
-                    self.delta[i] += self.omega[i] @ ((self.gamma * y) - x)
+                self.delta[i] += self.omega[i] @ ((self.gamma * y[i]) - x[i])
 
-            if self.partial_observability:
-                # Actor update
-                self.omega[i] += self.alpha * self.delta[i] * x[i]
+            # Actor update
+            self.omega[i] += self.alpha * self.delta[i] * x[i]
 
-                # Critic update
-                self.theta[i] += (
-                    self.beta
-                    * self.discount
-                    * self.delta[i]
-                    * self.psi(state, actions[i], i)
-                )
-            else:
-                # Actor update
-                self.omega[i] += self.alpha * self.delta[i] * get(state)
-
-                # Critic update
-                self.theta[i] += (
-                    self.beta
-                    * self.discount
-                    * self.delta[i]
-                    * self.psi(state, actions[i], i)
-                )
+            # Critic update
+            self.theta[i] += (
+                self.beta
+                * self.discount
+                * self.delta[i]
+                * self.psi(state, actions[i], i)
+            )
         self.discount *= self.gamma
         self.step_count += 1
 
     def psi(self, state, action, i):
         x = get(state) / self.tau
-        if self.partial_observability:
-            x = x[i]
-        X = np.tile(x, (self.n_actions, 1))
+        X = np.tile(x[i], (self.n_actions, 1))
         P = -np.tile(self._pi(state, i, self.step_count), (self.theta[i].shape[0], 1)).T
         P[action] += 1
         return P @ X
@@ -217,10 +185,7 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
     def _V(self, step_count:int) -> np.ndarray:
         ret = []
         for state in range(self.n_states):
-            if self.partial_observability:
-                vs = np.mean(np.sum(self.omega * get(state), axis=1), axis=0)
-            else:
-                vs = np.mean(self.omega @ get(state), axis=0)
+            vs = np.mean(np.sum(self.omega * get(state), axis=1), axis=0)
             ret.append(vs)
         return np.array(ret)
 
@@ -238,7 +203,4 @@ class ActorCriticSemiGradientDuo(Serializable, AgentInterface):
     @lru_cache(maxsize=1)
     def _pi(self, state: int, i: int, step_count: int) -> np.ndarray:
         x = get(state) / self.tau
-        if self.partial_observability:
-            return softmax(self.theta[i] @ x[i])
-        else:
-            return softmax(self.theta[i] @ x)
+        return softmax(self.theta[i] @ x[i])
