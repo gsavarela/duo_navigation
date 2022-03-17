@@ -1,31 +1,23 @@
-# FIXME: I wonder if we could use GYM register here.
-# Common interface for different variations of a model.
-from agents.sarsa import SARSATabular, SARSASemiGradient, SARSADifferentialSemiGradient
-from agents.actor_critic import ActorCriticSemiGradient, ActorCriticDifferentialSemiGradient, ActorCriticTabular
-# from agents.centralized import (CentralizedActorCritic,
-#         FullyCentralizedActorCriticV1, FullyCentralizedActorCriticV2,
-#         TabularCentralizedActorCritic)
-from agents.optimal import Optimal
+from agents.central import ActorCriticCentral
+from agents.jals import ActorCriticJALs
+from agents.ils import ActorCriticILs
+
 
 def get_agent(env, flags):
-    agent_cls = eval(flags.agent_type)
-    # if flags.agent_type in ('CentralizedActorCritic', 'FullyCentralizedActorCriticV1',
-    #         'FullyCentralizedActorCriticV2', 'TabularCentralizedActorCritic'):
-    #     return agent_cls(env, alpha=flags.alpha, beta=flags.beta, decay=flags.decay) 
-    if flags.agent_type in ('SARSATabular', 'SARSASemiGradient'):
-        return agent_cls(env, alpha=flags.alpha, episodes=flags.episodes) 
-    if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticSemiGradient', 'SARSADifferentialSemiGradient'):
-        return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes, explore=flags.explore, decay=flags.decay)
-    if flags.agent_type in ('ActorCriticDifferentialSemiGradient', 'ActorCriticTabular'):
-        return agent_cls(env, alpha=flags.alpha, beta=flags.beta, zeta=flags.zeta, episodes=flags.episodes, explore=flags.explore)
-    # if flags.agent_type == 'SARSASemiGradient':
-    #     return agent_cls(env, alpha=flags.alpha, beta=flags.beta, episodes=flags.episodes)
-    if flags.agent_type == 'Optimal':
-        return agent_cls(env, alpha=flags.alpha, decay=flags.decay)
-__all__ = [
-    'Optimal', 'ActorCriticSemiGradient',
-    'ActorCriticDifferentialSemiGradient', 'ActorCriticTabular',
-    'SARSATabular', 'SARSASemiGradient','SARSADifferentialSemiGradient'
-]
-# __all__ = ['CentralizedActorCritic', 'FullyCentralizedActorCriticV1', 'FullyCentralizedActorCriticV2', 'Optimal', 'SARSATabular', 'SARSASemiGradient', 'TabularCentralizedActorCritic']
+    # agent_cls = eval(flags.agent_type)
+    if flags.agent_type in ("Central", "JALs", "ILs"):
+        agent_cls = eval(f'ActorCritic{flags.agent_type}')
+        return agent_cls(
+            env,
+            alpha=flags.alpha,
+            beta=flags.beta,
+            episodes=flags.episodes,
+            explore=flags.explore,
+            decay=flags.decay,
+        )
 
+    else:
+        raise ValueError(f"{flags.agent_type} is not supported.")
+
+AGENT_TYPES = ['Central', "JALs", "ILs"]
+__all__ = ["ActorCriticCentral", "ActorCriticJALs", "ActorCriticILs"]
