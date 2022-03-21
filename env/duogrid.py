@@ -54,7 +54,7 @@ class Grid(mult.Grid):
         except ValueError as exc:
             if not not_exist_ok: raise exc
 
-        if self.grid[j * self.width + i] is v: 
+        if self.grid[j * self.width + i] is v:
             self.grid[j * self.width + i] = None
 
 

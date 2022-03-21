@@ -166,13 +166,12 @@ def print_arguments(opts, timestamp):
 
 def main(flags, timestamp):
     # Instanciate environment and agent
-    flags.cooperative = flags.agent_type in ("Central", "JALs")
     flags.partial_observability = flags.agent_type in ("ILs",)
 
     register(
         id="duo-navigation-v0",
         entry_point="env:DuoNavigationGameEnv",
-        kwargs={"flags": flags},
+        kwargs=vars(flags)
     )
     env = make("duo-navigation-v0").unwrapped
 

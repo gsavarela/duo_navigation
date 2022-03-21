@@ -146,6 +146,11 @@ def best_actions(agent_positions, goal_pos, width=None, height=None):
     moves = product(MOVES, repeat=len(agent_positions))
     if len(agent_positions) == 2:
         moves = [mov[-1::-1] for mov in moves]
+    if isinstance(goal_pos, list):
+        n_goals = len(goal_pos)
+    else:
+        n_goals = 1
+    assert n_goals <= 2
     if not ((width is None) or (height is None)):
         # Handles grid boundaries
         def next_position(pos, move):
@@ -165,10 +170,16 @@ def best_actions(agent_positions, goal_pos, width=None, height=None):
             return [next_position(p, m) for p, m in zip(pos, move)]
 
     # Manhattan distance
-    def dist(x):
-        if isarr(x):
-            return np.abs(goal_pos - x).sum()
-        return np.max([*map(dist, x)])
+    if n_goals == 1:
+        def dist(x):
+            if isarr(x):
+                return np.abs(goal_pos - x).sum()
+            return np.max([*map(dist, x)])
+    else:
+        def dist(x):
+            d1 = max([np.abs(g - p).sum() for g, p in zip(goal_pos, x)])
+            d2 = max([np.abs(g - p).sum() for g, p in zip(goal_pos[-1::-1], x)])
+            return min(d1, d2)
 
     prev_dist = dist(agent_positions)
     res = []
@@ -188,7 +199,8 @@ def action_set(n_players=N_PLAYERS):
 
 if __name__ == "__main__":
     width, height = 2, 2
-    goal_pos = np.array([2, 1])
+    goal_pos = [np.array([2, 1]), np.array([2, 2])]
+    # goal_pos = [np.array([2, 1])]
 
     def bact(x):
         return best_actions(x, goal_pos, width=width, height=height)

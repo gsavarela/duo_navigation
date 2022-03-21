@@ -272,15 +272,15 @@ def display_policy(env, agent):
 
 
 def display_ac(env, agent):
-    goal_pos = env.goal_pos
+    if env.n_goals == 1:
+        goal_pos = np.array(list(env.goal_pos))
+    else:
+        goal_pos = env.goal_pos
 
     def bact(x):
-        return best_actions(
-            x, np.array(list(goal_pos)), width=env.width - 2, height=env.height - 2
-        )
+        return best_actions(x, goal_pos, width=env.width - 2, height=env.height - 2)
 
     print(env)
-
     states_positions_gen = env.next_states()
     margin = "#" * 30
     data = defaultdict(list)
