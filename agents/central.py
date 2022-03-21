@@ -26,6 +26,7 @@ from agents.interfaces import AgentInterface
 
 N_PLAYERS = 2
 
+
 class ActorCriticCentral(Serializable, AgentInterface):
     def __init__(
         self,
@@ -62,16 +63,16 @@ class ActorCriticCentral(Serializable, AgentInterface):
         self.gamma = gamma
         self.explore = explore
         self.epsilon = 1.0
-        self.epsilon_step = float(1.2 * (1 - 1e-1) / episodes)
+        self.epsilon_step = float(1.2 * 1 / episodes)
         self.reset(seed=0, first=True)
 
     # TODO: those methods should go to the interface.
-    def reset(self, seed=None, first=False):
+    def reset(self, seed: int = None, first: bool = False) -> None:
         self.discount = 1.0
 
         np.random.seed(seed)
         if not first:
-            self.epsilon = max(1e-1, self.epsilon - self.epsilon_step)
+            self.epsilon = max(2e-1, self.epsilon - self.epsilon_step)
             # For each episode
             if self.decay:
                 self.decay_count += 1
@@ -79,20 +80,21 @@ class ActorCriticCentral(Serializable, AgentInterface):
                 self.beta = np.power(self.decay_count, -0.65)
 
     @property
-    def label(self):
-        return f"ActorCritic SG ({label()})"
+    def label(self) -> str:
+        return f"ActorCriticCentral ({label()})"
 
     @property
-    def task(self):
+    def task(self) -> str:
         return "episodic"
 
     @property
-    def tau(self):
-        return float(10 * self.epsilon if self.explore else 1.0)
+    def tau(self) -> float:
+        return float(5.0 * self.epsilon if self.explore else 1.0)
 
     """
         AgentInterface: Implementation Methods and Properties.
     """
+
     @property
     def A(self) -> np.ndarray:
         ret = []
@@ -143,7 +145,7 @@ class ActorCriticCentral(Serializable, AgentInterface):
         self.discount *= self.gamma
         self.step_count += 1
 
-    def psi(self, state, action):
+    def psi(self, state: int, action: int) -> np.ndarray:
         X = np.tile(get(state) / self.tau, (len(self.action_set), 1))
         P = -np.tile(self._PI(state), (self.theta.shape[0], 1)).T
 

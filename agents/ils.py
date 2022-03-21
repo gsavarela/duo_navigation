@@ -68,12 +68,12 @@ class ActorCriticILs(Serializable, AgentInterface):
         self.epsilon_step = float(1.2 * (1 - 1e-1) / episodes)
         self.reset(seed=0, first=True)
 
-    def reset(self, seed=None, first=False):
+    def reset(self, seed: int = None, first: bool = False) -> None:
         self.discount = 1.0
 
         np.random.seed(seed)
         if not first:
-            self.epsilon = max(1e-1, self.epsilon - self.epsilon_step)
+            self.epsilon = max(2e-1, self.epsilon - self.epsilon_step)
             # For each episode
             if self.decay:
                 self.decay_count += 1
@@ -81,21 +81,21 @@ class ActorCriticILs(Serializable, AgentInterface):
                 self.beta = np.power(self.decay_count, -0.65)
 
     @cached_property
-    def n_actions(self):
+    def n_actions(self) -> int:
         """number of actions per agent"""
         return int(len(self.action_set) ** (1 / N_PLAYERS))
 
     @cached_property
-    def label(self):
+    def label(self) -> str:
         return f"ActorCriticILs ({label()})"
 
     @property
-    def task(self):
+    def task(self) -> str:
         return "episodic"
 
     @property
-    def tau(self):
-        return float(10 * self.epsilon if self.explore else 1.0)
+    def tau(self) -> float:
+        return float(5.0 * self.epsilon if self.explore else 1.0)
 
     """
         AgentInterface: Implementation Methods and Properties.
